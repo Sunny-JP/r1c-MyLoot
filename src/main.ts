@@ -53,6 +53,8 @@ document.addEventListener('alpine:init', () => {
     pdfZoom: 1.0,
     initialPinchDist: 0,
     initialPinchZoom: 1.0,
+    pinchCenterX: 0,
+    pinchCenterY: 0,
 
     handleTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
@@ -61,19 +63,35 @@ document.addEventListener('alpine:init', () => {
           e.touches[0].clientY - e.touches[1].clientY
         );
         this.initialPinchZoom = this.pdfZoom;
+
+        const wrapper = document.getElementById('pdf-scroll-wrapper');
+        if (wrapper) {
+          const rect = wrapper.getBoundingClientRect();
+          this.pinchCenterX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left + wrapper.scrollLeft;
+          this.pinchCenterY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top + wrapper.scrollTop;
+        }
       }
     },
     
     handleTouchMove(e: TouchEvent) {
       if (e.touches.length === 2) {
         e.preventDefault();
+        const wrapper = document.getElementById('pdf-scroll-wrapper');
+        if (!wrapper) return;
+
         const currentDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        const scale = currentDist / this.initialPinchDist;
-        const newZoom = this.initialPinchZoom * scale;
-        this.pdfZoom = Math.max(1.0, Math.min(newZoom, 5.0));
+        const scaleRatio = currentDist / this.initialPinchDist;
+        const newZoom = Math.max(1.0, Math.min(this.initialPinchZoom * scaleRatio, 5.0));
+
+        if (newZoom !== this.pdfZoom) {
+          const zoomDelta = newZoom / this.pdfZoom;
+          this.pdfZoom = newZoom;
+          wrapper.scrollLeft = (this.pinchCenterX * zoomDelta) - (this.pinchCenterX - wrapper.scrollLeft);
+          wrapper.scrollTop = (this.pinchCenterY * zoomDelta) - (this.pinchCenterY - wrapper.scrollTop);
+        }
       }
     },
 
@@ -127,7 +145,7 @@ document.addEventListener('alpine:init', () => {
             const ctx = canvas.getContext('2d');
             if (!ctx) continue;
 
-            const viewport = page.getViewport({ scale: 2.0 });
+            const viewport = page.getViewport({ scale: 4.0 });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
