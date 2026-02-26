@@ -115,7 +115,7 @@ document.addEventListener('alpine:init', () => {
           e.touches[0].clientY - e.touches[1].clientY
         );
         const scaleRatio = currentDist / this.initialPinchDist;
-        const newZoom = Math.max(1.0, Math.min(this.initialPinchZoom * scaleRatio, 5.0));
+        const newZoom = Math.max(1.0, Math.min(this.initialPinchZoom * scaleRatio, 10.0));
 
         if (newZoom !== this.pdfZoom) {
           const zoomDelta = newZoom / this.pdfZoom;
@@ -186,7 +186,7 @@ document.addEventListener('alpine:init', () => {
             const ctx = canvas.getContext('2d');
             if (!ctx) continue;
 
-            const viewport = page.getViewport({ scale: 4.0 });
+            const viewport = page.getViewport({ scale: 5.0 });
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
