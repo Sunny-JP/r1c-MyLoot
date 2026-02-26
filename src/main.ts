@@ -63,7 +63,6 @@ document.addEventListener('alpine:init', () => {
     pinchCenterX: 0,
     pinchCenterY: 0,
 
-    // サークルカードの長押し判定
     handleCircleLongPressStart(id: number) {
       if (this.isDeleteMode) return;
       this.circleLongPressTimer = window.setTimeout(() => { this.activeCircleContextId = id; }, 600);
@@ -72,14 +71,12 @@ document.addEventListener('alpine:init', () => {
       window.clearTimeout(this.circleLongPressTimer);
     },
 
-    // 詳細モーダルを開く
     openCircleDetail(circle: Circle) {
       if (this.isDeleteMode || this.activeCircleContextId === circle.id) return;
       this.selectedCircle = circle;
       this.isCircleDetailOpen = true;
     },
 
-    // サークルの削除 (コンテキストメニューから)
     async deleteCircle(id: number) {
       if (!confirm(`${this.t('deleteOneCircleConfirm')}`)) return;
       await db.circles.delete(id);
@@ -244,9 +241,52 @@ document.addEventListener('alpine:init', () => {
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const dd = String(today.getDate()).padStart(2, '0');
-        const id = await db.events.add({ name: 'New Event', date: `${yyyy}-${mm}-${dd}` });
+        
+        const eventId = await db.events.add({ 
+          name: this.lang === 'ja' ? 'サンプルイベント' : 'Sample Event', 
+          date: `${yyyy}-${mm}-${dd}` 
+        });
+
+        if (eventId) {
+          await db.circles.bulkAdd([
+            {
+              eventId: eventId,
+              name: this.lang === 'ja' ? 'サークルまいるーと' : 'Circle Mai-ruuto',
+              space: '東A01a',
+              links: ['https://www.pixiv.net/'],
+              priority: 3,
+              isChecked: false,
+              items: [
+                { name: this.lang === 'ja' ? '新刊セット' : 'New Book Set', price: 1000, isChecked: false },
+                { name: this.lang === 'ja' ? 'アクスタ' : 'Acrylic Stand', price: 500, isChecked: true }
+              ]
+            },
+            {
+              eventId: eventId,
+              name: this.lang === 'ja' ? 'TESTサークル' : 'Test Circle',
+              space: '西あ12b',
+              links: [],
+              isChecked: false,
+              items: [
+                { name: this.lang === 'ja' ? '既刊' : 'Previous Book', price: 500, isChecked: false }
+              ]
+            },
+            {
+              eventId: eventId,
+              name: this.lang === 'ja' ? '我道工房' : 'Waremichi Koubou',
+              space: '南A34c',
+              links: [],
+              priority: 1,
+              isChecked: false,
+              items: [
+                { name: this.lang === 'ja' ? '無配' : 'Free Book', price: 0, isChecked: false }
+              ]
+            }
+          ]);
+        }
+
         await this.loadEvents();
-        const first = await db.events.get(id);
+        const first = await db.events.get(eventId);
         if (first) await this.selectEvent(first);
       }
     },
@@ -573,7 +613,6 @@ document.addEventListener('alpine:init', () => {
         await db.circles.put(circle);
         await this.refreshCircles();
 
-        // 詳細モーダル表示中のサークルなら状態を同期する
         if (this.selectedCircle && this.selectedCircle.id === circleId) {
           this.selectedCircle = circle;
         }
