@@ -3,6 +3,12 @@ import { db, processImage } from './db';
 import type { Circle, Item, EventFolder } from './db';
 import { translations, languageList, type Language } from './i18n';
 
+declare global {
+  interface Window {
+    pdfjsLib: any;
+  }
+}
+
 document.addEventListener('alpine:init', () => {
    Alpine.data('app', () => ({
     lang: (localStorage.getItem('lang') || 'ja') as Language,
@@ -29,14 +35,39 @@ document.addEventListener('alpine:init', () => {
     sortAsc: true,
     eventSortDesc: true,
     
-    // PDFリサイズ用
     pdfWidth: parseInt(localStorage.getItem('pdfWidth') || '40'),
     pdfHeight: parseInt(localStorage.getItem('pdfHeight') || '250'),
     isPdfCollapsed: false,
 
-    // Aboutモーダル用
     isAboutOpen: false,
-    aboutTab: 'usage', // 'usage' | 'terms' | 'policy' | 'dev'
+    aboutTab: 'usage',
+
+    pdfZoom: 1.0,
+    initialPinchDist: 0,
+    initialPinchZoom: 1.0,
+
+    handleTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        this.initialPinchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        this.initialPinchZoom = this.pdfZoom;
+      }
+    },
+    
+    handleTouchMove(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scale = currentDist / this.initialPinchDist;
+        const newZoom = this.initialPinchZoom * scale;
+        this.pdfZoom = Math.max(1.0, Math.min(newZoom, 5.0));
+      }
+    },
 
     get mapPaneStyle() {
       if (window.innerWidth >= 900) {
@@ -67,6 +98,42 @@ document.addEventListener('alpine:init', () => {
     newItems: [] as Item[],
     newImagesPreview: [] as string[],
     newFile: null as File | null,
+
+    async renderPdf(url: string) {
+      if (!window.pdfjsLib) return;
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      try {
+        const loadingTask = window.pdfjsLib.getDocument(url);
+        const pdfDoc = await loadingTask.promise;
+        
+        setTimeout(async () => {
+          const container = document.getElementById('pdf-canvas-container');
+          if (!container) return;
+          container.innerHTML = ''; 
+          this.pdfZoom = 1.0; 
+
+          for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+            const page = await pdfDoc.getPage(pageNum);
+            const canvas = document.createElement('canvas');
+            canvas.className = 'pdf-page-canvas';
+            container.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) continue;
+
+            const viewport = page.getViewport({ scale: 2.0 });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = { canvasContext: ctx, viewport: viewport };
+            await page.render(renderContext).promise;
+          }
+        }, 50);
+      } catch (e) {
+        console.error(e);
+      }
+    },
 
     async loadEvents() {
       let list = await db.events.toArray();
@@ -193,7 +260,12 @@ document.addEventListener('alpine:init', () => {
       this.isDeleteMode = false;
       this.selectedIds = [];
       if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
-      this.pdfUrl = event.mapPdf ? URL.createObjectURL(event.mapPdf) + '#toolbar=0&navpanes=0' : null;
+      
+      this.pdfUrl = event.mapPdf ? URL.createObjectURL(event.mapPdf) : null;
+      if (this.pdfUrl) {
+        this.renderPdf(this.pdfUrl);
+      }
+
       await this.refreshCircles();
       this.isMenuOpen = false; 
       this.isFormOpen = false;
@@ -468,7 +540,9 @@ document.addEventListener('alpine:init', () => {
       await db.events.update(this.currentEvent.id, { mapPdf: file });
       this.currentEvent.mapPdf = file;
       if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
-      this.pdfUrl = URL.createObjectURL(file) + '#toolbar=0&navpanes=0';
+      
+      this.pdfUrl = URL.createObjectURL(file);
+      this.renderPdf(this.pdfUrl);
     },
 
     async resetMapPdf() {

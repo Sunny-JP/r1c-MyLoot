@@ -6,6 +6,7 @@
     <title>コミケ購入管理</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script type="module" src="/src/main.ts"></script>
     <style>
       [x-cloak] {
@@ -223,10 +224,11 @@
               <span class="material-icons-round" x-text="window.innerWidth >= 900 ? 'drag_indicator' : 'drag_handle'"></span>
             </div>
           </div>
-          <div class="map-body">
+
+          <div class="map-body" style="position: relative">
             <template x-if="pdfUrl">
-              <div class="iframe-wrapper">
-                <iframe :src="pdfUrl"></iframe>
+              <div style="width: 100%; height: 100%; overflow: auto; position: relative" @touchstart="handleTouchStart" @touchmove="handleTouchMove">
+                <div id="pdf-canvas-container" :style="`width: ${pdfZoom * 100}%; min-width: 100%; padding: 8px; box-sizing: border-box;`"></div>
               </div>
             </template>
             <div x-show="!pdfUrl" class="map-empty" x-text="t('mapEmpty')"></div>
@@ -249,9 +251,7 @@
         </nav>
         <div class="about-content">
           <div x-show="aboutTab === 'usage'" class="tab-pane">
-            <section>
-              <p x-text="t('usageIntro')"></p>
-            </section>
+            <section><p x-text="t('usageIntro')"></p></section>
             <section>
               <h4 x-text="t('usageStep1Title')"></h4>
               <ul>
