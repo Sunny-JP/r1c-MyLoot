@@ -137,7 +137,7 @@
                   </div>
 
                   <div class="thumb" @click.stop="openImagePreview(circle)">
-                    <img :src="(circle.images && circle.images.length > 0) ? circle.images[0] : (circle.image || 'https://placehold.jp/24/cccccc/ffffff/635x903.png?text=NoImage')" />
+                    <img :src="(circle.images && circle.images.length > 0) ? circle.images[0] : (circle.image || '/noimage.png')" />
                   </div>
                   <div class="info">
                     <div class="title-row">
