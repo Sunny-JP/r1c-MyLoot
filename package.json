@@ -15,8 +15,8 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "dependencies": {
+    "@fontsource/noto-sans": "^5.2.10",
     "@fontsource/noto-sans-jp": "^5.2.9",
-    "@fontsource/reddit-mono": "^5.2.8",
     "alpinejs": "^3.15.8",
     "dexie": "^4.3.0",
     "material-icons": "^1.13.14",

@@ -1,7 +1,11 @@
 /// <reference types="vite-plugin-pwa/client" />
 
+import '@fontsource/noto-sans/index.css';
+import '@fontsource/noto-sans/500.css';
+import '@fontsource/noto-sans/600.css';
 import '@fontsource/noto-sans-jp/index.css';
-import '@fontsource/reddit-mono/index.css';
+import '@fontsource/noto-sans-jp/500.css';
+import '@fontsource/noto-sans-jp/600.css';
 import 'material-icons/iconfont/round.css';
 
 import Alpine from 'alpinejs';
