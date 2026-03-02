@@ -14,6 +14,7 @@
   --sel-bg: rgba(2, 1, 102, 0.25);
   --badge-sel-bg: rgba(255, 255, 255, 0.5);
   --price-sel-bg: rgba(2, 1, 102, 0.25);
+  color-scheme: light;
 }
 
 body.dark {
@@ -28,6 +29,7 @@ body.dark {
   --sel-bg: rgba(216, 220, 255, 0.25);
   --badge-sel-bg: rgba(0, 0, 0, 0.3);
   --price-sel-bg: rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
 }
 
 ::selection { background-color: var(--sel-bg); }
@@ -116,7 +118,7 @@ input[type="text"], input[type="number"], input[type="url"], input[type="date"] 
 .form-card { background: var(--card); padding: 12px; border-radius: 12px; border: 1px solid var(--brd); margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
 .form-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
 .form-col { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.input-flat { width: 100%; padding: 4px 2px; border: none; border-bottom: 1px solid var(--brd); border-radius: 0; background: transparent; color: var(--txt); box-sizing: border-box; font-size: 13px; }
+.input-flat { width: 100%; padding: 4px 2px; border: none; border-bottom: 1px solid var(--brd); border-radius: 0; background: transparent; color: var(--txt); box-sizing: border-box; font-size: 13px; font-weight: 500; }
 .input-flat:focus { border-bottom-color: var(--p); outline: none; box-shadow: 0 1px 0 var(--p); }
 
 .image-scroll-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-top: 8px; }

@@ -177,8 +177,8 @@
           </div>
         </main>
 
-        <section class="form-pane" x-show="isFormOpen" x-transition.opacity x-cloak @click="isFormOpen = false; editingId = null">
-          <div class="form-card" @click.stop>
+        <section class="form-pane" x-show="isFormOpen" x-transition.opacity x-cloak>
+          <div class="form-card">
             <div class="form-row">
               <div class="form-col">
                 <input type="text" x-model="newName" :placeholder="t('circleName')" class="input-flat" />
@@ -277,9 +277,9 @@
                 <template x-for="(item, idx) in selectedCircle.items" :key="idx">
                   <label class="detail-item-card" :class="{ 'done': item.isChecked }" @click.prevent="toggleItemCheck(selectedCircle.id, idx)">
                     <span class="material-icons-round" :style="item.isChecked ? 'color: var(--suc);' : 'color: var(--mut);'" style="font-size: 24px" x-text="item.isChecked ? 'check_circle' : 'radio_button_unchecked'"></span>
-                    <div style="flex: 1; min-width: 0">
-                      <div class="item-name" x-text="item.name"></div>
-                      <div class="price-tag" style="display: inline-block; margin-top: 4px; padding: 2px 8px; font-size: 14px">¥<span x-text="item.price.toLocaleString()" style="margin-left: 2px"></span></div>
+                    <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px">
+                      <div class="item-name" x-text="item.name" style="flex: 1; min-width: 0"></div>
+                      <div class="price-tag" style="padding: 2px 8px; font-size: 14px; flex-shrink: 0">¥<span x-text="item.price.toLocaleString()" style="margin-left: 2px"></span></div>
                     </div>
                   </label>
                 </template>
@@ -422,8 +422,8 @@
       </div>
     </div>
 
-    <div class="floating-modal event-modal" x-show="isEventModalOpen" x-transition.opacity x-cloak @click="isEventModalOpen = false">
-      <div class="form-card event-form" @click.stop>
+    <div class="floating-modal event-modal" x-show="isEventModalOpen" x-transition.opacity x-cloak>
+      <div class="form-card event-form">
         <header class="modal-header"><h3 x-text="editingEventId ? t('edit') : t('newEvent')"></h3></header>
         <div class="form-row">
           <div class="form-col">
