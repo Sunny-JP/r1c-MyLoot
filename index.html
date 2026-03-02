@@ -434,7 +434,7 @@
           </div>
         </div>
         <div class="form-footer">
-          <button @click="saveEvent()" class="btn-pill primary" style="flex: 1" x-text="t('update')"></button>
+          <button @click="saveEvent()" class="btn-pill primary" style="flex: 1" x-text="editingEventId ? t('update') : t('add')"></button>
           <button @click="isEventModalOpen = false" class="btn-pill" style="flex: 1" x-text="t('cancel')"></button>
         </div>
       </div>
