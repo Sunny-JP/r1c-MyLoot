@@ -407,6 +407,11 @@ document.addEventListener('alpine:init', () => {
         
         if (this.editingEventId) {
             await db.events.update(this.editingEventId, { name: this.tempEventName, date: this.tempEventDate });
+            
+            if (this.currentEvent && this.currentEvent.id === this.editingEventId) {
+                this.currentEvent.name = this.tempEventName;
+                this.currentEvent.date = this.tempEventDate;
+            }
         } else {
             const id = await db.events.add({ name: this.tempEventName, date: this.tempEventDate });
             const newEv = await db.events.get(id);

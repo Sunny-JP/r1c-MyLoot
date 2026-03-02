@@ -26,7 +26,7 @@
       }
     </style>
   </head>
-  <body x-data="app" :class="{ 'dark': darkMode }" x-cloak @contextmenu.prevent="" x-effect="document.title = t('siteTitle')">
+  <body x-data="app" :class="{ 'dark': darkMode }" x-cloak x-effect="document.title = t('siteTitle');">
     <div class="menu-overlay" x-show="isMenuOpen" @click="isMenuOpen = false" x-transition.opacity></div>
 
     <aside class="side-menu" :class="{ 'is-open': isMenuOpen }">
@@ -57,7 +57,7 @@
           <button class="btn-pill" style="flex: 1" @click="exportData()" x-text="t('export')"></button>
           <label class="btn-pill" style="flex: 1; text-align: center"><span x-text="t('import')"></span><input type="file" @change="importData" hidden /></label>
         </div>
-        <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 8px">
+        <div style="display: flex; gap: 4px; align-items: stretch; margin-bottom: 8px">
           <button @click="toggleDarkMode()" class="btn-pill"><span class="material-icons-round" x-text="darkMode ? 'dark_mode' : 'light_mode'"></span></button>
           <select class="input-flat" x-model="lang" @change="setLang($event.target.value)" style="flex: 1">
             <template x-for="l in languageList" :key="l.code">
@@ -73,8 +73,8 @@
       <header class="app-bar">
         <button @click="isMenuOpen = true" class="icon-btn light"><span class="material-icons-round">menu</span></button>
         <div class="title-group">
-          <small x-text="currentEvent?.name"></small>
-          <h1 x-text="t('siteTitle')"></h1>
+          <small x-text="t('siteTitle')"></small>
+          <h1 x-text="currentEvent?.name"></h1>
         </div>
         <div class="price-tag">¥<span x-text="totalPrice.toLocaleString()" style="margin-left: 2px"></span></div>
       </header>
@@ -177,19 +177,19 @@
           </div>
         </main>
 
-        <section class="form-pane" x-show="isFormOpen" x-transition.opacity x-cloak>
-          <div class="form-card">
+        <section class="form-pane" x-show="isFormOpen" x-transition.opacity x-cloak @click="isFormOpen = false; editingId = null">
+          <div class="form-card" @click.stop>
             <div class="form-row">
               <div class="form-col">
                 <input type="text" x-model="newName" :placeholder="t('circleName')" class="input-flat" />
 
                 <div style="display: flex; gap: 8px; align-items: center">
                   <input type="text" x-model="newSpace" :placeholder="t('space')" class="input-flat" style="flex: 1" />
-                  <div class="star-rating" style="flex-shrink: 0; padding-right: 4px">
+                  <div class="star-rating" style="flex-shrink: 0">
                     <button type="button" class="icon-btn star" :class="{'active': newPriority >= 1}" @click="newPriority = 1"><span class="material-icons-round">star</span></button>
                     <button type="button" class="icon-btn star" :class="{'active': newPriority >= 2}" @click="newPriority = 2"><span class="material-icons-round">star</span></button>
                     <button type="button" class="icon-btn star" :class="{'active': newPriority >= 3}" @click="newPriority = 3"><span class="material-icons-round">star</span></button>
-                    <button type="button" class="icon-btn clear" x-show="newPriority > 0" @click="newPriority = 0"><span class="material-icons-round">close</span></button>
+                    <button type="button" class="icon-btn clear" @click="newPriority = 0"><span class="material-icons-round">close</span></button>
                   </div>
                 </div>
 
@@ -197,7 +197,7 @@
                   <template x-for="(lk, index) in newLinks" :key="index">
                     <div style="display: flex; gap: 4px">
                       <input type="url" x-model="lk.url" @input="checkAutoAddLink(index)" :placeholder="t('url')" class="input-flat" style="flex: 1" />
-                      <button @click="removeLinkInForm(index)" class="icon-btn del">×</button>
+                      <button type="button" @click="removeLinkInForm(index)" class="icon-btn clear"><span class="material-icons-round">close</span></button>
                     </div>
                   </template>
                 </div>
@@ -217,12 +217,12 @@
               </label>
             </div>
 
-            <div class="item-editor" style="margin-top: 8px">
+            <div class="item-editor">
               <template x-for="(item, index) in newItems" :key="index">
                 <div class="item-input-row">
                   <input type="text" x-model="item.name" @input="checkAutoAdd(index)" :placeholder="t('itemName')" class="input-flat" style="flex: 1" />
                   <input type="number" x-model="item.price" :placeholder="t('price')" class="input-flat" style="width: 80px" />
-                  <button @click="removeItemInForm(index)" class="icon-btn del">×</button>
+                  <button type="button" @click="removeItemInForm(index)" class="icon-btn clear"><span class="material-icons-round">close</span></button>
                 </div>
               </template>
             </div>
