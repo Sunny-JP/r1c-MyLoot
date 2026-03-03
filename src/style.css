@@ -233,10 +233,10 @@ select.input-flat:focus { border-color: var(--p); box-shadow: 0 0 0 1px var(--p)
 .detail-item-card .item-name { font-weight: 600; font-size: 15px; white-space: normal; word-break: break-all; }
 .detail-item-card.done .item-name { text-decoration: line-through; }
 
-/* --- アニメーション・トランジション --- */
+/* --- アニメーション・トランジションの基本設定 --- */
 .btn-pill, .icon-btn, .btn-tool, .context-btn, .circle-card, .event-card, .image-upload-box, .about-tabs button, .slider-btn, .detail-item-card, select.input-flat, .link-badge { transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); }
 
-/* --- ホバー時のスタイル (PC用) --- */
+/* --- PCなどのマウスホバー時のスタイル --- */
 @media (hover: hover) {
   .btn-tool:hover:not(.active), .circle-card:hover, .detail-item-card:hover, .event-card:hover:not(.active) { background: var(--sel-bg); }
   .image-upload-box:not(.has-image):hover { background: var(--sel-bg); border-color: var(--p); }
@@ -248,11 +248,39 @@ select.input-flat:focus { border-color: var(--p); box-shadow: 0 0 0 1px var(--p)
   .slider-btn:hover { background: rgba(0, 0, 0, 0.8); }
 }
 
-/* --- 長押し時のスタイル (スマホ用) --- */
+/* --- スマホ等のタップ・長押しアクション --- */
 @media (hover: none) and (pointer: coarse) {
-  .slider-btn:active, .event-card:active, .link-badge:active, .btn-pill.primary:active { opacity: 0.6; transition-delay: 0.1s; }
-  .btn-pill:active:not(.primary), select.input-flat:active { border-color: var(--p); box-shadow: 0 0 0 1px var(--p); opacity: 0.6; transition-delay: 0.1s; }
-  .circle-card:active, .detail-item-card:active { background: var(--sel-bg); opacity: 0.8; transition-delay: 0.1s; }
-  .image-upload-box:not(.has-image):active { background: var(--sel-bg); opacity: 0.7; transition-delay: 0.1s; }
-  .btn-tool:active, .icon-btn:active, .context-btn:active { background: var(--sel-bg); opacity: 0.5; transition-delay: 0.1s; }
+  /* 一瞬のタップでは反応させず、長押し時のみ適用 (transition-delay を利用) */
+  .slider-btn:active, .event-card:active, .link-badge:active, .btn-pill.primary:active {
+    opacity: 0.6;
+    transition-delay: 0.15s;
+  }
+  .btn-pill:active:not(.primary) {
+    border-color: var(--p);
+    box-shadow: 0 0 0 1px var(--p);
+    opacity: 0.6;
+    transition-delay: 0.15s;
+  }
+  .circle-card:active, .detail-item-card:active {
+    background: var(--sel-bg);
+    opacity: 0.8;
+    transition-delay: 0.15s;
+  }
+  .image-upload-box:not(.has-image):active {
+    background: var(--sel-bg);
+    opacity: 0.7;
+    transition-delay: 0.15s;
+  }
+  .btn-tool:active, .icon-btn:active, .context-btn:active {
+    background: var(--sel-bg);
+    opacity: 0.5;
+    transition-delay: 0.15s;
+  }
+  
+  /* 言語セレクタ固有の修正：タップ・長押し時の枠線や背景色変化をなくし、枠が残り続けるのを防ぐ */
+  select.input-flat:active, select.input-flat:focus {
+    border-color: transparent; 
+    box-shadow: none;
+    outline: none;
+  }
 }
