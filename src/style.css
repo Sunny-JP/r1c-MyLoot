@@ -244,12 +244,3 @@ select.input-flat:focus { border-color: var(--p); box-shadow: 0 0 0 1px var(--p)
   .about-tabs button:hover { color: var(--p); background: var(--sel-bg); }
   .slider-btn:hover { background: rgba(0, 0, 0, 0.8); }
 }
-@media (hover: none) and (pointer: coarse) {
-  .circle-card:active, .detail-item-card:active { background: var(--sel-bg); opacity: 0.8; transition-delay: 0.15s; }
-  .slider-btn:active, .event-card:active, .link-badge:active, .btn-pill:active, 
-  .image-upload-box:not(.has-image):active, .btn-tool:active, .icon-btn:active, 
-  .context-btn:active, select.input-flat:active {
-    opacity: 1;
-    background: transparent;
-  }
-}
