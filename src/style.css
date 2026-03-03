@@ -61,8 +61,8 @@ input[type="text"], input[type="number"], input[type="url"], input[type="date"] 
 .app-bar { height: var(--header-h); background: var(--header-bg); color: var(--header-txt); padding: 0 12px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; z-index: 10; }
 
 .title-group { flex: 1; min-width: 0; line-height: 1.2; }
-.title-group h1 { margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: -2px; }
-.title-group small { font-size: 11px; opacity: 0.8; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-bottom: 3px; margin-bottom: -2px; }
+.title-group h1 { margin: 0; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: -1px; }
+.title-group small { font-size: 11px; opacity: 0.8; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-bottom: 2px; margin-bottom: -3px; }
 .price-tag { background: var(--header-txt); color: var(--header-bg); padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; }
 
 .content-split { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
