@@ -233,9 +233,10 @@ select.input-flat:focus { border-color: var(--p); box-shadow: 0 0 0 1px var(--p)
 .detail-item-card .item-name { font-weight: 600; font-size: 15px; white-space: normal; word-break: break-all; }
 .detail-item-card.done .item-name { text-decoration: line-through; }
 
-.btn-pill, .icon-btn, .btn-tool, .context-btn, .circle-card, .event-card, .image-upload-box, .about-tabs button, .slider-btn, .detail-item-card, select.input-flat, .link-badge {
-  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
+/* --- アニメーション・トランジション --- */
+.btn-pill, .icon-btn, .btn-tool, .context-btn, .circle-card, .event-card, .image-upload-box, .about-tabs button, .slider-btn, .detail-item-card, select.input-flat, .link-badge { transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+/* --- ホバー時のスタイル (PC用) --- */
 @media (hover: hover) {
   .btn-tool:hover:not(.active), .circle-card:hover, .detail-item-card:hover, .event-card:hover:not(.active) { background: var(--sel-bg); }
   .image-upload-box:not(.has-image):hover { background: var(--sel-bg); border-color: var(--p); }
@@ -245,4 +246,13 @@ select.input-flat:focus { border-color: var(--p); box-shadow: 0 0 0 1px var(--p)
   .icon-btn:hover, .context-btn:hover { background: var(--sel-bg); border-radius: 50%; }
   .about-tabs button:hover { color: var(--p); background: var(--sel-bg); }
   .slider-btn:hover { background: rgba(0, 0, 0, 0.8); }
+}
+
+/* --- 長押し時のスタイル (スマホ用) --- */
+@media (hover: none) and (pointer: coarse) {
+  .slider-btn:active, .event-card:active, .link-badge:active, .btn-pill.primary:active { opacity: 0.6; transition-delay: 0.1s; }
+  .btn-pill:active:not(.primary), select.input-flat:active { border-color: var(--p); box-shadow: 0 0 0 1px var(--p); opacity: 0.6; transition-delay: 0.1s; }
+  .circle-card:active, .detail-item-card:active { background: var(--sel-bg); opacity: 0.8; transition-delay: 0.1s; }
+  .image-upload-box:not(.has-image):active { background: var(--sel-bg); opacity: 0.7; transition-delay: 0.1s; }
+  .btn-tool:active, .icon-btn:active, .context-btn:active { background: var(--sel-bg); opacity: 0.5; transition-delay: 0.1s; }
 }
