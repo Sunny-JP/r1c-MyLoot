@@ -79,7 +79,7 @@
 
       <div class="content-split" id="split-container">
         <main class="list-pane" id="list-pane">
-          <div class="toolbar-container" x-data="{ isToolbarOpen: true }">
+          <div class="toolbar-container">
             <div class="toolbar" x-show="isToolbarOpen" x-transition.collapse>
               <div class="btn-group-container" x-show="!isDeleteMode">
                 <span class="group-label">Circles</span>
@@ -109,7 +109,7 @@
               </div>
             </div>
 
-            <button @click="isToolbarOpen = !isToolbarOpen" class="toolbar-tab">
+            <button @click="toggleToolbar()" class="toolbar-tab">
               <span class="material-icons-round" x-text="isToolbarOpen ? 'expand_less' : 'expand_more'"></span>
             </button>
           </div>

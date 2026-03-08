@@ -170,6 +170,12 @@ document.addEventListener('alpine:init', () => {
 
     columns: parseInt(localStorage.getItem('columns') || '1') as 1 | 2,
 
+    isToolbarOpen: localStorage.getItem('isToolbarOpen') !== 'false',
+    toggleToolbar() {
+      this.isToolbarOpen = !this.isToolbarOpen;
+      localStorage.setItem('isToolbarOpen', this.isToolbarOpen.toString());
+    },
+
     previewImages: [] as string[],
     previewIndex: 0,
     imgStyles: { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' } as any,
