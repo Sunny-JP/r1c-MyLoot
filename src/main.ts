@@ -22,882 +22,1064 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 registerSW({ immediate: true });
 
 document.addEventListener('alpine:init', () => {
-  Alpine.data('app', () => ({
-    lang: (localStorage.getItem('lang') || 'ja') as Language,
-    languageList,
-    appearance: localStorage.getItem('appearance') || 'system',
-    themeColor: localStorage.getItem('themeColor') || 'blue',
-    systemIsDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+  Alpine.data('app', () => {
+    let savedTheme = localStorage.getItem('themeColor') || 'blue';
+    const themeMigrationMap: Record<string, string> = {
+      'pink': 'rose',
+      'green': 'sage',
+      'orange': 'amber',
+      'clay': 'amber',
+      'peach': 'coral'
+    };
+    if (themeMigrationMap[savedTheme]) {
+      savedTheme = themeMigrationMap[savedTheme];
+      localStorage.setItem('themeColor', savedTheme);
+    }
 
-    get isDark() {
-      if (this.appearance === 'system') return this.systemIsDark;
-      return this.appearance === 'dark';
-    },
+    return {
+      lang: (localStorage.getItem('lang') || 'ja') as Language,
+      languageList,
+      appearance: localStorage.getItem('appearance') || 'system',
+      themeColor: savedTheme,
+      systemIsDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
 
-    t(key: keyof typeof translations['ja']) { return translations[this.lang][key] || key; },
-    setLang(l: string) { this.lang = l as Language; localStorage.setItem('lang', l); },
+      get isDark() {
+        if (this.appearance === 'system') return this.systemIsDark;
+        return this.appearance === 'dark';
+      },
 
-    events: [] as EventFolder[],
-    currentEvent: null as EventFolder | null,
-    circles: [] as Circle[],
-    selectedUuids: [] as string[],
-    isMenuOpen: false, 
-    isFormOpen: false, 
-    isSettingsOpen: false,
-    isDeleteMode: false,
-    pdfUrl: null as string | null,
-    editingUuid: null as string | null,
-    
-    activeContextId: null as number | null,
-
-    isCircleDetailOpen: false,
-    selectedCircle: null as Circle | null,
-
-    eventSortDesc: true,
-    
-    pdfWidth: parseInt(localStorage.getItem('pdfWidth') || '40'),
-    pdfHeight: parseInt(localStorage.getItem('pdfHeight') || '250'),
-    isPdfCollapsed: false,
-
-    isAboutOpen: false,
-    aboutTab: 'usage',
-
-    pdfZoom: 1.0,
-    initialPinchDist: 0,
-    initialPinchZoom: 1.0,
-    pinchCenterX: 0,
-    pinchCenterY: 0,
-
-    imgZoom: 1.0,
-    initialImgPinchDist: 0,
-    initialImgZoom: 1.0,
-    imgPinchCenterX: 0,
-    imgPinchCenterY: 0,
-
-    confirmModal: {
-      isOpen: false,
-      message: '',
-      onConfirm: null as (() => Promise<void> | void) | null
-    },
-
-    importModal: {
-      isOpen: false,
-      file: null as File | null,
-      fileName: '',
-      mode: 'new' as 'new' | 'append'
-    },
-
-    showConfirm(message: string, callback: () => Promise<void> | void) {
-      this.confirmModal.message = message;
-      this.confirmModal.onConfirm = callback;
-      this.confirmModal.isOpen = true;
-    },
-    
-    closeConfirm() {
-      this.confirmModal.isOpen = false;
-      this.confirmModal.onConfirm = null;
-    },
-
-    closeForm() {
-      this.isFormOpen = false;
-      setTimeout(() => {
-        this.editingUuid = null;
-      }, 200);
-    },
-
-    async moveCircleUp(index: number) {
-      if (index <= 0) return;
-      const newCircles = [...this.circles];
-      [newCircles[index - 1], newCircles[index]] = [newCircles[index], newCircles[index - 1]];
-      this.circles = newCircles;
-      if (this.currentEvent && this.currentEvent.id !== undefined) {
-        const newOrderUuids = this.circles.map(c => c.uuid);
-        await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: newOrderUuids });
-      }
-    },
-
-    async moveCircleDown(index: number) {
-      if (index >= this.circles.length - 1) return;
-      const newCircles = [...this.circles];
-      [newCircles[index + 1], newCircles[index]] = [newCircles[index], newCircles[index + 1]];
-      this.circles = newCircles;
-      if (this.currentEvent && this.currentEvent.id !== undefined) {
-        const newOrderUuids = this.circles.map(c => c.uuid);
-        await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: newOrderUuids });
-      }
-    },
-
-    openCircleDetail(circle: Circle) {
-      if (this.isDeleteMode) return;
-      this.selectedCircle = circle;
-      this.isCircleDetailOpen = true;
-    },
-
-    handleTouchStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        this.initialPinchDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        this.initialPinchZoom = this.pdfZoom;
-
-        const wrapper = document.getElementById('pdf-scroll-wrapper');
-        if (wrapper) {
-          const rect = wrapper.getBoundingClientRect();
-          const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-          const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-          
-          this.pinchCenterX = wrapper.scrollLeft + (clientX - rect.left);
-          this.pinchCenterY = wrapper.scrollTop + (clientY - rect.top);
-        }
-      }
-    },
-    
-    handleTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const wrapper = document.getElementById('pdf-scroll-wrapper');
-        if (!wrapper) return;
-
-        const currentDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const scaleRatio = currentDist / this.initialPinchDist;
-        const newZoom = Math.max(1.0, Math.min(this.initialPinchZoom * scaleRatio, 10.0));
-
-        if (newZoom !== this.pdfZoom) {
-          const zoomDelta = newZoom / this.pdfZoom;
-          this.pdfZoom = newZoom;
-
-          const newPinchCenterX = this.pinchCenterX * zoomDelta;
-          const newPinchCenterY = this.pinchCenterY * zoomDelta;
-
-          const rect = wrapper.getBoundingClientRect();
-          const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-          const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-          
-          wrapper.scrollLeft = newPinchCenterX - (clientX - rect.left);
-          wrapper.scrollTop = newPinchCenterY - (clientY - rect.top);
-
-          this.pinchCenterX = newPinchCenterX;
-          this.pinchCenterY = newPinchCenterY;
-        }
-      }
-    },
-
-    togglePdfZoom(e: any) {
-      const wrapper = document.getElementById('pdf-scroll-wrapper');
-      if (!wrapper) return;
-
-      const rect = wrapper.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || (rect.left + rect.width / 2);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY) || (rect.top + rect.height / 2);
-
-      const xRect = clientX - rect.left;
-      const yRect = clientY - rect.top;
-
-      const xContent = wrapper.scrollLeft + xRect;
-      const yContent = wrapper.scrollTop + yRect;
-
-      let targetZoom = 1.0;
-      if (this.pdfZoom < 2.5) {
-        targetZoom = 3.0;
-      } else if (this.pdfZoom < 4.5) {
-        targetZoom = 5.0;
-      } else {
-        targetZoom = 1.0;
-      }
-
-      const scale = targetZoom / this.pdfZoom;
-      this.pdfZoom = targetZoom;
-
-      setTimeout(() => {
-        wrapper.scrollLeft = (xContent * scale) - xRect;
-        wrapper.scrollTop = (yContent * scale) - yRect;
-      }, 50);
-    },
-
-    handleImgTouchStart(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        this.initialImgPinchDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        this.initialImgZoom = this.imgZoom;
-
-        const wrapper = document.getElementById('img-scroll-wrapper');
-        if (wrapper) {
-          const rect = wrapper.getBoundingClientRect();
-          const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-          const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-          
-          this.imgPinchCenterX = wrapper.scrollLeft + (clientX - rect.left);
-          this.imgPinchCenterY = wrapper.scrollTop + (clientY - rect.top);
-        }
-      }
-    },
-    
-    handleImgTouchMove(e: TouchEvent) {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const wrapper = document.getElementById('img-scroll-wrapper');
-        if (!wrapper) return;
-
-        const currentDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const scaleRatio = currentDist / this.initialImgPinchDist;
-        const newZoom = Math.max(1.0, Math.min(this.initialImgZoom * scaleRatio, 10.0));
-
-        if (newZoom !== this.imgZoom) {
-          const zoomDelta = newZoom / this.imgZoom;
-          this.imgZoom = newZoom;
-
-          const newPinchCenterX = this.imgPinchCenterX * zoomDelta;
-          const newPinchCenterY = this.imgPinchCenterY * zoomDelta;
-
-          const rect = wrapper.getBoundingClientRect();
-          const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-          const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-          
-          wrapper.scrollLeft = newPinchCenterX - (clientX - rect.left);
-          wrapper.scrollTop = newPinchCenterY - (clientY - rect.top);
-
-          this.imgPinchCenterX = newPinchCenterX;
-          this.imgPinchCenterY = newPinchCenterY;
-        }
-      }
-    },
-
-    toggleImgZoom(e: any) {
-      const wrapper = document.getElementById('img-scroll-wrapper');
-      if (!wrapper) return;
-
-      const rect = wrapper.getBoundingClientRect();
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || (rect.left + rect.width / 2);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY) || (rect.top + rect.height / 2);
-
-      const xRect = clientX - rect.left;
-      const yRect = clientY - rect.top;
-
-      const xContent = wrapper.scrollLeft + xRect;
-      const yContent = wrapper.scrollTop + yRect;
-
-      const targetZoom = this.imgZoom > 1.0 ? 1.0 : 2.5;
-      const scale = targetZoom / this.imgZoom;
-
-      this.imgZoom = targetZoom;
-
-      setTimeout(() => {
-        wrapper.scrollLeft = (xContent * scale) - xRect;
-        wrapper.scrollTop = (yContent * scale) - yRect;
-      }, 50);
-    },
-
-    get mapPaneStyle() {
-      if (window.innerWidth >= 900) {
-        const w = this.isPdfCollapsed ? '1px' : `${this.pdfWidth}vw`;
-        return { width: w };
-      } else {
-        const h = this.isPdfCollapsed ? '1px' : `${this.pdfHeight}px`;
-        return { height: h };
-      }
-    },
-
-    isEventModalOpen: false,
-    editingEventId: null as number | null,
-    tempEventName: '',
-    tempEventDate: '',
-
-    columns: parseInt(localStorage.getItem('columns') || '1') as 1 | 2,
-
-    isToolbarOpen: localStorage.getItem('isToolbarOpen') !== 'false',
-    toggleToolbar() {
-      this.isToolbarOpen = !this.isToolbarOpen;
-      localStorage.setItem('isToolbarOpen', this.isToolbarOpen.toString());
-    },
-
-    previewImages: [] as string[],
-    previewIndex: 0,
-    imgStyles: { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' },
-
-    get zoomedImgStyles() {
-      const zoom = this.imgZoom;
-      const styles = this.imgStyles as { width: string; height: string };
+      t(key: keyof typeof translations['ja']) { 
+        return (translations as any)[this.lang]?.[key] || translations['ja'][key] || key; 
+      },
       
-      if (styles.width === '100%') {
-        return { width: `${zoom * 100}%`, height: 'auto', maxWidth: 'none', maxHeight: 'none', display: 'block' };
-      } else {
-        return { height: `${zoom * 100}%`, width: 'auto', maxWidth: 'none', maxHeight: 'none', display: 'block' };
-      }
-    },
+      setLang(l: string) { this.lang = l as Language; localStorage.setItem('lang', l); },
 
-    newName: '',
-    newSpace: '',
-    newLinks: [{ url: '' }],
-    newItems: [] as Item[],
-    newImagesPreview: [] as string[],
-    newFile: null as File | null,
+      events: [] as EventFolder[],
+      currentEvent: null as EventFolder | null,
+      circles: [] as Circle[],
+      selectedUuids: [] as string[],
+      isMenuOpen: false, 
+      isFormOpen: false, 
+      isSettingsOpen: false,
+      isDeleteMode: false,
+      isSummaryOpen: false,
+      pdfUrl: null as string | null,
+      editingUuid: null as string | null,
+      
+      activeContextId: null as number | null,
 
-    async renderPdf(url: string) {
-      try {
-        const loadingTask = pdfjsLib.getDocument(url);
-        const pdfDoc = await loadingTask.promise;
-        
-        setTimeout(async () => {
-          const container = document.getElementById('pdf-canvas-container');
-          if (!container) return;
-          container.innerHTML = ''; 
-          this.pdfZoom = 1.0; 
+      isCircleDetailOpen: false,
+      selectedCircle: null as Circle | null,
 
-          for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-            const page = await pdfDoc.getPage(pageNum);
-            const canvas = document.createElement('canvas');
-            canvas.className = 'pdf-page-canvas';
-            container.appendChild(canvas);
+      eventSortDesc: true,
+      
+      pdfWidth: parseInt(localStorage.getItem('pdfWidth') || '40'),
+      pdfHeight: parseInt(localStorage.getItem('pdfHeight') || '250'),
+      isPdfCollapsed: false,
+
+      isAboutOpen: false,
+      aboutTab: 'usage',
+
+      pdfZoom: 1.0,
+      initialPinchDist: 0,
+      initialPinchZoom: 1.0,
+      pinchCenterX: 0,
+      pinchCenterY: 0,
+
+      imgZoom: 1.0,
+      initialImgPinchDist: 0,
+      initialImgZoom: 1.0,
+      imgPinchCenterX: 0,
+      imgPinchCenterY: 0,
+
+      confirmModal: {
+        isOpen: false,
+        message: '',
+        onConfirm: null as (() => Promise<void> | void) | null
+      },
+
+      importModal: {
+        isOpen: false,
+        file: null as File | null,
+        fileName: '',
+        mode: 'new' as 'new' | 'append'
+      },
+
+      showConfirm(message: string, callback: () => Promise<void> | void) {
+        this.confirmModal.message = message;
+        this.confirmModal.onConfirm = callback;
+        this.confirmModal.isOpen = true;
+      },
+      
+      closeConfirm() {
+        this.confirmModal.isOpen = false;
+        this.confirmModal.onConfirm = null;
+      },
+
+      closeForm() {
+        this.isFormOpen = false;
+        setTimeout(() => {
+          this.editingUuid = null;
+        }, 200);
+      },
+
+      async moveCircleUp(index: number) {
+        if (index <= 0) return;
+        const newCircles = [...this.circles];
+        [newCircles[index - 1], newCircles[index]] = [newCircles[index], newCircles[index - 1]];
+        this.circles = newCircles;
+        if (this.currentEvent && this.currentEvent.id !== undefined) {
+          const newOrderUuids = this.circles.map(c => c.uuid);
+          await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: newOrderUuids });
+        }
+      },
+
+      async moveCircleDown(index: number) {
+        if (index >= this.circles.length - 1) return;
+        const newCircles = [...this.circles];
+        [newCircles[index + 1], newCircles[index]] = [newCircles[index], newCircles[index + 1]];
+        this.circles = newCircles;
+        if (this.currentEvent && this.currentEvent.id !== undefined) {
+          const newOrderUuids = this.circles.map(c => c.uuid);
+          await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: newOrderUuids });
+        }
+      },
+
+      openCircleDetail(circle: Circle) {
+        if (this.isDeleteMode) return;
+        this.selectedCircle = circle;
+        this.isCircleDetailOpen = true;
+      },
+
+      handleTouchStart(e: TouchEvent) {
+        if (e.touches.length === 2) {
+          this.initialPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          this.initialPinchZoom = this.pdfZoom;
+
+          const wrapper = document.getElementById('pdf-scroll-wrapper');
+          if (wrapper) {
+            const rect = wrapper.getBoundingClientRect();
+            const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
             
-            const ctx = canvas.getContext('2d');
-            if (!ctx) continue;
-
-            const viewport = page.getViewport({ scale: 5.0 });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-
-            const renderContext = {
-              canvasContext: ctx,
-              viewport: viewport,
-              canvas: canvas
-            };
-
-            await page.render(renderContext).promise;
+            this.pinchCenterX = wrapper.scrollLeft + (clientX - rect.left);
+            this.pinchCenterY = wrapper.scrollTop + (clientY - rect.top);
           }
+        }
+      },
+      
+      handleTouchMove(e: TouchEvent) {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const wrapper = document.getElementById('pdf-scroll-wrapper');
+          if (!wrapper) return;
+
+          const currentDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const scaleRatio = currentDist / this.initialPinchDist;
+          const newZoom = Math.max(1.0, Math.min(this.initialPinchZoom * scaleRatio, 10.0));
+
+          if (newZoom !== this.pdfZoom) {
+            const zoomDelta = newZoom / this.pdfZoom;
+            this.pdfZoom = newZoom;
+
+            const newPinchCenterX = this.pinchCenterX * zoomDelta;
+            const newPinchCenterY = this.pinchCenterY * zoomDelta;
+
+            const rect = wrapper.getBoundingClientRect();
+            const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            
+            wrapper.scrollLeft = newPinchCenterX - (clientX - rect.left);
+            wrapper.scrollTop = newPinchCenterY - (clientY - rect.top);
+
+            this.pinchCenterX = newPinchCenterX;
+            this.pinchCenterY = newPinchCenterY;
+          }
+        }
+      },
+
+      togglePdfZoom(e: any) {
+        const wrapper = document.getElementById('pdf-scroll-wrapper');
+        if (!wrapper) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX) || (rect.left + rect.width / 2);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || (rect.top + rect.height / 2);
+
+        const xRect = clientX - rect.left;
+        const yRect = clientY - rect.top;
+
+        const xContent = wrapper.scrollLeft + xRect;
+        const yContent = wrapper.scrollTop + yRect;
+
+        let targetZoom = 1.0;
+        if (this.pdfZoom < 2.5) {
+          targetZoom = 3.0;
+        } else if (this.pdfZoom < 4.5) {
+          targetZoom = 5.0;
+        } else {
+          targetZoom = 1.0;
+        }
+
+        const scale = targetZoom / this.pdfZoom;
+        this.pdfZoom = targetZoom;
+
+        setTimeout(() => {
+          wrapper.scrollLeft = (xContent * scale) - xRect;
+          wrapper.scrollTop = (yContent * scale) - yRect;
         }, 50);
-      } catch (e) {
-        console.error(e);
-      }
-    },
+      },
 
-    async loadEvents() {
-      let list = await db.events.toArray();
-      list.sort((a, b) => {
-        const dateA = new Date(a.date || 0).getTime();
-        const dateB = new Date(b.date || 0).getTime();
-        return this.eventSortDesc ? dateB - dateA : dateA - dateB;
-      });
-      this.events = list;
-    },
+      handleImgTouchStart(e: TouchEvent) {
+        if (e.touches.length === 2) {
+          this.initialImgPinchDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          this.initialImgZoom = this.imgZoom;
 
-    toggleEventSort() {
-      this.eventSortDesc = !this.eventSortDesc;
-      this.loadEvents();
-    },
-
-    async init() {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-        this.systemIsDark = e.matches;
-      });
-
-      this.initResizer();
-      await this.loadEvents();
+          const wrapper = document.getElementById('img-scroll-wrapper');
+          if (wrapper) {
+            const rect = wrapper.getBoundingClientRect();
+            const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            
+            this.imgPinchCenterX = wrapper.scrollLeft + (clientX - rect.left);
+            this.imgPinchCenterY = wrapper.scrollTop + (clientY - rect.top);
+          }
+        }
+      },
       
-      const lastEventId = localStorage.getItem('lastEventId');
-      let targetEvent = null;
-      
-      if (lastEventId) {
-        targetEvent = this.events.find(e => e.id === parseInt(lastEventId));
-      }
-      
-      if (!targetEvent && this.events.length > 0) {
-        targetEvent = this.events[0];
-      }
+      handleImgTouchMove(e: TouchEvent) {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const wrapper = document.getElementById('img-scroll-wrapper');
+          if (!wrapper) return;
 
-      if (targetEvent) {
-        await this.selectEvent(targetEvent);
-      } else if (this.events.length === 0) {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
+          const currentDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const scaleRatio = currentDist / this.initialImgPinchDist;
+          const newZoom = Math.max(1.0, Math.min(this.initialImgZoom * scaleRatio, 10.0));
+
+          if (newZoom !== this.imgZoom) {
+            const zoomDelta = newZoom / this.imgZoom;
+            this.imgZoom = newZoom;
+
+            const newPinchCenterX = this.imgPinchCenterX * zoomDelta;
+            const newPinchCenterY = this.imgPinchCenterY * zoomDelta;
+
+            const rect = wrapper.getBoundingClientRect();
+            const clientX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const clientY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            
+            wrapper.scrollLeft = newPinchCenterX - (clientX - rect.left);
+            wrapper.scrollTop = newPinchCenterY - (clientY - rect.top);
+
+            this.imgPinchCenterX = newPinchCenterX;
+            this.imgPinchCenterY = newPinchCenterY;
+          }
+        }
+      },
+
+      toggleImgZoom(e: any) {
+        const wrapper = document.getElementById('img-scroll-wrapper');
+        if (!wrapper) return;
+
+        const rect = wrapper.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX) || (rect.left + rect.width / 2);
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || (rect.top + rect.height / 2);
+
+        const xRect = clientX - rect.left;
+        const yRect = clientY - rect.top;
+
+        const xContent = wrapper.scrollLeft + xRect;
+        const yContent = wrapper.scrollTop + yRect;
+
+        const targetZoom = this.imgZoom > 1.0 ? 1.0 : 2.5;
+        const scale = targetZoom / this.imgZoom;
+
+        this.imgZoom = targetZoom;
+
+        setTimeout(() => {
+          wrapper.scrollLeft = (xContent * scale) - xRect;
+          wrapper.scrollTop = (yContent * scale) - yRect;
+        }, 50);
+      },
+
+      get mapPaneStyle() {
+        if (window.innerWidth >= 900) {
+          const w = this.isPdfCollapsed ? '1px' : `${this.pdfWidth}vw`;
+          return { width: w };
+        } else {
+          const h = this.isPdfCollapsed ? '1px' : `${this.pdfHeight}px`;
+          return { height: h };
+        }
+      },
+
+      isEventModalOpen: false,
+      editingEventId: null as number | null,
+      tempEventName: '',
+      tempEventDate: '',
+
+      columns: parseInt(localStorage.getItem('columns') || '1') as 1 | 2,
+
+      isToolbarOpen: localStorage.getItem('isToolbarOpen') !== 'false',
+      toggleToolbar() {
+        this.isToolbarOpen = !this.isToolbarOpen;
+        localStorage.setItem('isToolbarOpen', this.isToolbarOpen.toString());
+      },
+
+      previewImages: [] as string[],
+      previewIndex: 0,
+      imgStyles: { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' },
+
+      get zoomedImgStyles() {
+        const zoom = this.imgZoom;
+        const styles = this.imgStyles as { width: string; height: string };
         
-        const eventId = await db.events.add({ 
-          name: this.lang === 'ja' ? 'サンプルイベント' : 'Sample Event', 
-          date: `${yyyy}-${mm}-${dd}` 
+        if (styles.width === '100%') {
+          return { width: `${zoom * 100}%`, height: 'auto', maxWidth: 'none', maxHeight: 'none', display: 'block' };
+        } else {
+          return { height: `${zoom * 100}%`, width: 'auto', maxWidth: 'none', maxHeight: 'none', display: 'block' };
+        }
+      },
+
+      newName: '',
+      newSpace: '',
+      newLinks: [{ url: '' }],
+      newItems: [] as Item[],
+      newImagesPreview: [] as string[],
+      newFile: null as File | null,
+
+      async renderPdf(url: string) {
+        try {
+          const loadingTask = pdfjsLib.getDocument(url);
+          const pdfDoc = await loadingTask.promise;
+          
+          setTimeout(async () => {
+            const container = document.getElementById('pdf-canvas-container');
+            if (!container) return;
+            container.innerHTML = ''; 
+            this.pdfZoom = 1.0; 
+
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+              const page = await pdfDoc.getPage(pageNum);
+              const canvas = document.createElement('canvas');
+              canvas.className = 'pdf-page-canvas';
+              container.appendChild(canvas);
+              
+              const ctx = canvas.getContext('2d');
+              if (!ctx) continue;
+
+              const viewport = page.getViewport({ scale: 5.0 });
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport,
+                canvas: canvas
+              };
+
+              await page.render(renderContext).promise;
+            }
+          }, 50);
+        } catch (e) {
+          console.error(e);
+        }
+      },
+
+      async loadEvents() {
+        let list = await db.events.toArray();
+        list.sort((a, b) => {
+          const dateA = new Date(a.date || 0).getTime();
+          const dateB = new Date(b.date || 0).getTime();
+          return this.eventSortDesc ? dateB - dateA : dateA - dateB;
+        });
+        this.events = list;
+      },
+
+      toggleEventSort() {
+        this.eventSortDesc = !this.eventSortDesc;
+        this.loadEvents();
+      },
+
+      async init() {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+          this.systemIsDark = e.matches;
         });
 
-        if (eventId) {
-          const uuid1 = crypto.randomUUID();
-          const uuid2 = crypto.randomUUID();
-          const uuid3 = crypto.randomUUID();
-
-          await db.circles.bulkAdd([
-            {
-              uuid: uuid1,
-              eventId: eventId,
-              name: this.lang === 'ja' ? 'サークルまいるーと' : 'Circle Mai-ruuto',
-              space: '東A01a',
-              links: ['https://www.pixiv.net/'],
-              isChecked: false,
-              items: [
-                { name: this.lang === 'ja' ? '新刊セット' : 'New Book Set', price: 1000, quantity: 1, isChecked: false },
-                { name: this.lang === 'ja' ? 'アクスタ' : 'Acrylic Stand', price: 500, quantity: 2, isChecked: true }
-              ]
-            },
-            {
-              uuid: uuid2,
-              eventId: eventId,
-              name: this.lang === 'ja' ? 'TESTサークル' : 'Test Circle',
-              space: '西あ12b',
-              links: [],
-              isChecked: false,
-              items: [
-                { name: this.lang === 'ja' ? '既刊' : 'Previous Book', price: 500, quantity: 1, isChecked: false }
-              ]
-            },
-            {
-              uuid: uuid3,
-              eventId: eventId,
-              name: this.lang === 'ja' ? '我道工房' : 'Waremichi Koubou',
-              space: '南A34c',
-              links: [],
-              isChecked: false,
-              items: [
-                { name: this.lang === 'ja' ? '無配' : 'Free Book', price: 0, quantity: 1, isChecked: false }
-              ]
-            }
-          ]);
-          await db.eventOrders.put({ eventId: eventId, circleUuids: [uuid1, uuid2, uuid3] });
-        }
-
+        this.initResizer();
         await this.loadEvents();
-        const first = await db.events.get(eventId);
-        if (first) await this.selectEvent(first);
-      }
-    },
-
-    initResizer() {
-      const resizer = document.getElementById('resizer');
-      let isDragging = false;
-      let startX = 0;
-      let startY = 0;
-      let startSize = 0;
-
-      const start = (e: any) => { 
-        isDragging = true; 
-        this.isPdfCollapsed = false;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        startX = clientX;
-        startY = clientY;
         
-        if (window.innerWidth >= 900) {
-          startSize = (this.pdfWidth * window.innerWidth) / 100;
-        } else {
-          startSize = this.pdfHeight;
-        }
-        document.body.style.userSelect = 'none';
-      };
-
-      const end = () => { 
-        if (!isDragging) return;
-        isDragging = false; 
-        document.body.style.userSelect = 'auto';
+        const lastEventId = localStorage.getItem('lastEventId');
+        let targetEvent = null;
         
-        if (window.innerWidth >= 900) {
-          if (this.pdfWidth < 3) this.isPdfCollapsed = true;
-          localStorage.setItem('pdfWidth', this.pdfWidth.toString());
-        } else {
-          if (this.pdfHeight < 30) this.isPdfCollapsed = true;
-          localStorage.setItem('pdfHeight', this.pdfHeight.toString());
+        if (lastEventId) {
+          targetEvent = this.events.find(e => e.id === parseInt(lastEventId));
         }
-      };
-      
-      const move = (e: any) => {
-        if (!isDragging) return;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        if (window.innerWidth >= 900) {
-          const deltaX = startX - clientX;
-          const newSizePx = startSize + deltaX;
-          const vw = (newSizePx / window.innerWidth) * 100;
-          this.pdfWidth = Math.max(0, Math.min(95, vw));
-        } else {
-          const deltaY = startY - clientY;
-          const newSizePx = startSize + deltaY;
-          this.pdfHeight = Math.max(0, Math.min(window.innerHeight - 80, newSizePx));
-        }
-      };
-
-      resizer?.addEventListener('mousedown', start);
-      resizer?.addEventListener('touchstart', start, { passive: true });
-      window.addEventListener('mousemove', move);
-      window.addEventListener('touchmove', move, { passive: true });
-      window.addEventListener('mouseup', end);
-      window.addEventListener('touchend', end);
-    },
-
-    toggleColumns() {
-      this.columns = this.columns === 1 ? 2 : 1;
-      localStorage.setItem('columns', this.columns.toString());
-    },
-
-    async selectEvent(event: EventFolder) {
-      this.currentEvent = event;
-      if (event.id) localStorage.setItem('lastEventId', event.id.toString());
-      this.activeContextId = null;
-      this.isDeleteMode = false;
-      this.selectedUuids = [];
-      if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
-      
-      this.pdfUrl = event.mapPdf ? URL.createObjectURL(event.mapPdf) : null;
-      if (this.pdfUrl) {
-        this.renderPdf(this.pdfUrl);
-      }
-
-      await this.refreshCircles();
-      this.isMenuOpen = false; 
-      this.isFormOpen = false;
-      this.editingUuid = null;
-    },
-
-    openEventCreateModal() {
-        this.editingEventId = null;
-        this.tempEventName = '';
-        const today = new Date();
-        this.tempEventDate = today.toISOString().split('T')[0];
-        this.isEventModalOpen = true;
-    },
-    openEventEditModal(event: EventFolder) {
-        this.activeContextId = null;
-        this.editingEventId = event.id!;
-        this.tempEventName = event.name;
-        this.tempEventDate = event.date || '';
-        this.isEventModalOpen = true;
-    },
-    async saveEvent() {
-        if (!this.tempEventName.trim()) return;
         
-        if (this.editingEventId) {
-            await db.events.update(this.editingEventId, { name: this.tempEventName, date: this.tempEventDate });
-            
-            if (this.currentEvent && this.currentEvent.id === this.editingEventId) {
-                this.currentEvent.name = this.tempEventName;
-                this.currentEvent.date = this.tempEventDate;
-            }
-        } else {
-            const id = await db.events.add({ name: this.tempEventName, date: this.tempEventDate });
-            const newEv = await db.events.get(id);
-            if (newEv) await this.selectEvent(newEv);
+        if (!targetEvent && this.events.length > 0) {
+          targetEvent = this.events[0];
         }
-        await this.loadEvents();
-        this.isEventModalOpen = false;
-    },
 
-    async duplicateEvent(event: EventFolder) {
-      if (!event.id) return;
-      const circles = await db.circles.where('eventId').equals(event.id).toArray();
-      const orderRecord = await db.eventOrders.get(event.id);
-      
-      const newId = await db.events.add({ 
-        name: event.name + ' (Copy)', 
-        date: event.date, 
-        mapPdf: event.mapPdf 
-      });
-
-      const newUuidsMap = new Map<string, string>();
-      for (const c of circles) {
-        const oldUuid = c.uuid;
-        c.uuid = crypto.randomUUID();
-        c.eventId = newId;
-        newUuidsMap.set(oldUuid, c.uuid);
-        await db.circles.add(c);
-      }
-
-      if (orderRecord) {
-        const newOrder = orderRecord.circleUuids.map(u => newUuidsMap.get(u)).filter(Boolean) as string[];
-        await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
-      }
-
-      await this.loadEvents();
-      this.activeContextId = null;
-    },
-
-    async deleteEvent(id: number) {
-      if (!confirm(this.t('deleteEventConfirm'))) return;
-      await db.events.delete(id);
-      await db.circles.where('eventId').equals(id).delete();
-      await db.eventOrders.delete(id);
-      await this.init();
-      this.activeContextId = null;
-    },
-
-    async refreshCircles() {
-      if (this.currentEvent && this.currentEvent.id !== undefined) {
-        let list = await db.circles.where('eventId').equals(this.currentEvent.id).toArray();
-        const orderRecord = await db.eventOrders.get(this.currentEvent.id);
-        
-        if (orderRecord && orderRecord.circleUuids.length > 0) {
-          const orderMap = new Map();
-          orderRecord.circleUuids.forEach((uuid, index) => orderMap.set(uuid, index));
-          list.sort((a, b) => {
-            const indexA = orderMap.has(a.uuid) ? orderMap.get(a.uuid) : 99999;
-            const indexB = orderMap.has(b.uuid) ? orderMap.get(b.uuid) : 99999;
-            return indexA - indexB;
+        if (targetEvent) {
+          await this.selectEvent(targetEvent);
+        } else if (this.events.length === 0) {
+          const today = new Date();
+          const yyyy = today.getFullYear();
+          const mm = String(today.getMonth() + 1).padStart(2, '0');
+          const dd = String(today.getDate()).padStart(2, '0');
+          
+          const eventId = await db.events.add({ 
+            name: this.lang === 'ja' ? 'サンプルイベント' : 'Sample Event', 
+            date: `${yyyy}-${mm}-${dd}` 
           });
+
+          if (eventId) {
+            const uuid1 = crypto.randomUUID();
+            const uuid2 = crypto.randomUUID();
+            const uuid3 = crypto.randomUUID();
+
+            await db.circles.bulkAdd([
+              {
+                uuid: uuid1,
+                eventId: eventId,
+                name: this.lang === 'ja' ? 'サークルまいるーと' : 'Circle Mai-ruuto',
+                space: '東A01a',
+                links: ['https://www.pixiv.net/'],
+                isChecked: false,
+                items: [
+                  { name: this.lang === 'ja' ? '新刊セット' : 'New Book Set', price: 1000, quantity: 1, isChecked: false },
+                  { name: this.lang === 'ja' ? 'アクスタ' : 'Acrylic Stand', price: 500, quantity: 2, isChecked: true }
+                ]
+              },
+              {
+                uuid: uuid2,
+                eventId: eventId,
+                name: this.lang === 'ja' ? 'TESTサークル' : 'Test Circle',
+                space: '西あ12b',
+                links: [],
+                isChecked: false,
+                items: [
+                  { name: this.lang === 'ja' ? '既刊' : 'Previous Book', price: 500, quantity: 1, isChecked: false }
+                ]
+              },
+              {
+                uuid: uuid3,
+                eventId: eventId,
+                name: this.lang === 'ja' ? '我道工房' : 'Waremichi Koubou',
+                space: '南A34c',
+                links: [],
+                isChecked: false,
+                items: [
+                  { name: this.lang === 'ja' ? '無配' : 'Free Book', price: 0, quantity: 1, isChecked: false }
+                ]
+              }
+            ]);
+            await db.eventOrders.put({ eventId: eventId, circleUuids: [uuid1, uuid2, uuid3] });
+          }
+
+          await this.loadEvents();
+          const first = await db.events.get(eventId);
+          if (first) await this.selectEvent(first);
         }
+      },
+
+      initResizer() {
+        const resizer = document.getElementById('resizer');
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let startSize = 0;
+
+        const start = (e: any) => { 
+          isDragging = true; 
+          this.isPdfCollapsed = false;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          startX = clientX;
+          startY = clientY;
+          
+          if (window.innerWidth >= 900) {
+            startSize = (this.pdfWidth * window.innerWidth) / 100;
+          } else {
+            startSize = this.pdfHeight;
+          }
+          document.body.style.userSelect = 'none';
+        };
+
+        const end = () => { 
+          if (!isDragging) return;
+          isDragging = false; 
+          document.body.style.userSelect = 'auto';
+          
+          if (window.innerWidth >= 900) {
+            if (this.pdfWidth < 3) this.isPdfCollapsed = true;
+            localStorage.setItem('pdfWidth', this.pdfWidth.toString());
+          } else {
+            if (this.pdfHeight < 30) this.isPdfCollapsed = true;
+            localStorage.setItem('pdfHeight', this.pdfHeight.toString());
+          }
+        };
         
-        this.circles = list;
-      }
-    },
+        const move = (e: any) => {
+          if (!isDragging) return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    openImagePreview(circle: Circle) {
-      this.previewImages = circle.images && circle.images.length > 0 
-        ? circle.images 
-        : (circle.image ? [circle.image] : []);
-      this.previewIndex = 0;
-      this.imgZoom = 1.0;
-      this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
-    },
+          if (window.innerWidth >= 900) {
+            const deltaX = startX - clientX;
+            const newSizePx = startSize + deltaX;
+            const vw = (newSizePx / window.innerWidth) * 100;
+            this.pdfWidth = Math.max(0, Math.min(95, vw));
+          } else {
+            const deltaY = startY - clientY;
+            const newSizePx = startSize + deltaY;
+            this.pdfHeight = Math.max(0, Math.min(window.innerHeight - 80, newSizePx));
+          }
+        };
 
-    nextPreview() {
-      this.previewIndex = (this.previewIndex + 1) % this.previewImages.length;
-      this.imgZoom = 1.0;
-      this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
-    },
-    
-    prevPreview() {
-      this.previewIndex = (this.previewIndex - 1 + this.previewImages.length) % this.previewImages.length;
-      this.imgZoom = 1.0;
-      this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
-    },
+        resizer?.addEventListener('mousedown', start);
+        resizer?.addEventListener('touchstart', start, { passive: true });
+        window.addEventListener('mousemove', move);
+        window.addEventListener('touchmove', move, { passive: true });
+        window.addEventListener('mouseup', end);
+        window.addEventListener('touchend', end);
+      },
 
-    updateImgStyle(e: Event) {
-      const img = e.target as HTMLImageElement;
-      if (!img.naturalWidth) return;
-      const containerRatio = 635 / 903;
-      const imgRatio = img.naturalWidth / img.naturalHeight;
-      if (imgRatio > containerRatio) {
-        this.imgStyles = { height: '100%', width: 'auto', maxWidth: 'none', maxHeight: 'none' };
-      } else {
-        this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
-      }
-    },
+      toggleColumns() {
+        this.columns = this.columns === 1 ? 2 : 1;
+        localStorage.setItem('columns', this.columns.toString());
+      },
 
-    openAddForm() {
-      this.editingUuid = null;
-      this.newName = '';
-      this.newSpace = '';
-      this.newLinks = [{ url: '' }];
-      this.newImagesPreview = [];
-      this.newFile = null;
-      this.newItems = [{ name: '', price: 0, quantity: 1, isChecked: false }];
-      this.isFormOpen = true;
-      this.isDeleteMode = false;
-    },
-
-    async openEditForm(circle: Circle) {
-      this.editingUuid = circle.uuid;
-      this.newName = circle.name;
-      this.newSpace = circle.space;
-      this.newFile = null;
-      
-      this.newImagesPreview = circle.images && circle.images.length > 0 
-        ? [...circle.images] 
-        : (circle.image ? [circle.image] : []);
-      
-      const existingLinks = circle.links || (circle.link ? [circle.link] : []);
-      this.newLinks = existingLinks.map(u => ({ url: u }));
-      if (this.newLinks.length === 0 || this.newLinks[this.newLinks.length - 1].url !== '') {
-        this.newLinks.push({ url: '' });
-      }
-
-      this.newItems = circle.items.map(i => ({
-        name: i.name,
-        price: i.price,
-        quantity: i.quantity || 1,
-        isChecked: i.isChecked
-      }));
-      if (this.newItems.length === 0 || this.newItems[this.newItems.length - 1].name !== '') {
-        this.newItems.push({ name: '', price: 0, quantity: 1, isChecked: false });
-      }
-      this.isFormOpen = true;
-    },
-
-    async handleImageSelect(e: any) {
-      const files = e.target.files;
-      for (let i = 0; i < files.length; i++) {
-        const dataUrl = await processImage(files[i]);
-        this.newImagesPreview.push(dataUrl);
-      }
-      e.target.value = '';
-    },
-
-    async saveCircle() {
-      if (!this.newName || !this.currentEvent || !this.currentEvent.id) return;
-      
-      const validLinks = this.newLinks
-        .map(l => l.url.trim())
-        .filter(u => u !== '')
-        .map(u => /^https?:\/\//i.test(u) ? u : `https://${u}`);
+      async selectEvent(event: EventFolder) {
+        this.currentEvent = event;
+        if (event.id) localStorage.setItem('lastEventId', event.id.toString());
+        this.activeContextId = null;
+        this.isDeleteMode = false;
+        this.selectedUuids = [];
+        if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
         
-      const validItems = this.newItems.filter(i => i.name.trim() !== '').map(i => ({
-        name: i.name,
-        price: Number(i.price) || 0,
-        quantity: Number(i.quantity) || 1,
-        isChecked: i.isChecked || false
-      }));
-      
-      const data: any = {
-        eventId: this.currentEvent.id,
-        name: this.newName,
-        space: this.newSpace,
-        genre: '',
-        links: validLinks,
-        link: validLinks.length > 0 ? validLinks[0] : '',
-        items: validItems,
-        isChecked: false,
-        images: [...this.newImagesPreview],
-        image: this.newImagesPreview.length > 0 ? this.newImagesPreview[0] : ''
-      };
-      
-      if (this.editingUuid) {
-        data.uuid = this.editingUuid;
-        await db.circles.put(data);
-      } else {
-        data.uuid = crypto.randomUUID();
-        await db.circles.add(data);
-        
-        const orderRecord = await db.eventOrders.get(this.currentEvent.id);
-        const uuids = orderRecord ? orderRecord.circleUuids : [];
-        uuids.push(data.uuid);
-        await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: uuids });
-      }
-      
-      this.closeForm();
-      await this.refreshCircles();
-    },
+        this.pdfUrl = event.mapPdf ? URL.createObjectURL(event.mapPdf) : null;
+        if (this.pdfUrl) {
+          this.renderPdf(this.pdfUrl);
+        }
 
-    async toggleItemCheck(circleUuid: string, itemIndex: number) {
-      if (this.isDeleteMode) return;
-      const circle = await db.circles.get(circleUuid);
-      if (circle) {
-        circle.items[itemIndex].isChecked = !circle.items[itemIndex].isChecked;
-        await db.circles.put(circle);
         await this.refreshCircles();
+        this.isMenuOpen = false; 
+        this.isFormOpen = false;
+        this.editingUuid = null;
+      },
 
-        if (this.selectedCircle && this.selectedCircle.uuid === circleUuid) {
-          this.selectedCircle = circle;
-        }
-      }
-    },
+      openEventCreateModal() {
+          this.editingEventId = null;
+          this.tempEventName = '';
+          const today = new Date();
+          this.tempEventDate = today.toISOString().split('T')[0];
+          this.isEventModalOpen = true;
+      },
+      openEventEditModal(event: EventFolder) {
+          this.activeContextId = null;
+          this.editingEventId = event.id!;
+          this.tempEventName = event.name;
+          this.tempEventDate = event.date || '';
+          this.isEventModalOpen = true;
+      },
+      async saveEvent() {
+          if (!this.tempEventName.trim()) return;
+          
+          if (this.editingEventId) {
+              await db.events.update(this.editingEventId, { name: this.tempEventName, date: this.tempEventDate });
+              
+              if (this.currentEvent && this.currentEvent.id === this.editingEventId) {
+                  this.currentEvent.name = this.tempEventName;
+                  this.currentEvent.date = this.tempEventDate;
+              }
+          } else {
+              const id = await db.events.add({ name: this.tempEventName, date: this.tempEventDate });
+              const newEv = await db.events.get(id);
+              if (newEv) await this.selectEvent(newEv);
+          }
+          await this.loadEvents();
+          this.isEventModalOpen = false;
+      },
 
-    toggleDeleteMode() {
-      this.isDeleteMode = !this.isDeleteMode;
-      if (!this.isDeleteMode) this.selectedUuids = [];
-    },
-    selectAll() {
-      this.selectedUuids = this.circles.map(c => c.uuid);
-    },
-    deselectAll() {
-      this.selectedUuids = [];
-    },
-    async deleteSelected() {
-      if (this.selectedUuids.length === 0) return;
-      if (!confirm(`${this.selectedUuids.length}${this.t('deleteSelectedConfirm')}`)) return;
-      await db.circles.bulkDelete(this.selectedUuids);
-      
-      const orderRecord = await db.eventOrders.get(this.currentEvent!.id!);
-      if (orderRecord) {
-        orderRecord.circleUuids = orderRecord.circleUuids.filter(u => !this.selectedUuids.includes(u));
-        await db.eventOrders.put(orderRecord);
-      }
-      
-      this.selectedUuids = [];
-      await this.refreshCircles();
-    },
-
-    checkAutoAddLink(index: number) {
-      if (index === this.newLinks.length - 1 && this.newLinks[index].url !== '') {
-        this.newLinks.push({ url: '' });
-      }
-    },
-    removeLinkInForm(index: number) {
-      this.newLinks.splice(index, 1);
-      if (this.newLinks.length === 0) this.newLinks.push({ url: '' });
-    },
-
-    async uploadMapPdf(e: any) {
-      const file = e.target.files[0];
-      if (!file || !this.currentEvent || !this.currentEvent.id) return;
-      await db.events.update(this.currentEvent.id, { mapPdf: file });
-      this.currentEvent.mapPdf = file;
-      if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
-      
-      this.pdfUrl = URL.createObjectURL(file);
-      this.renderPdf(this.pdfUrl);
-    },
-
-    async resetMapPdf() {
-      if (!this.currentEvent || !this.currentEvent.id || !confirm(this.t('deletePdfConfirm'))) return;
-      await db.events.update(this.currentEvent.id, { mapPdf: undefined });
-      this.currentEvent.mapPdf = undefined;
-      if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
-      this.pdfUrl = null;
-    },
-
-    removeItemInForm(index: number) { this.newItems.splice(index, 1); },
-    checkAutoAdd(index: number) {
-      if (index === this.newItems.length - 1 && this.newItems[index].name !== '') {
-        this.newItems.push({ name: '', price: 0, quantity: 1, isChecked: false });
-      }
-    },
-    get totalPrice(): number {
-      return this.circles.reduce((sum, c) => sum + c.items.reduce((iSum, item) => iSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0), 0);
-    },
-    async exportData() {
-      if (!this.currentEvent || !this.currentEvent.id) return;
-      const orderRecord = await db.eventOrders.get(this.currentEvent.id);
-      const data = {
-        event: this.currentEvent,
-        circles: this.circles,
-        eventOrders: orderRecord
-      };
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${this.currentEvent.name}.json`; a.click();
-    },
-    async importData(e: any) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const data = JSON.parse(reader.result as string);
-        const newId = await db.events.add({ name: data.event.name + ' (Import)', date: data.event.date || new Date().toLocaleDateString() });
+      async duplicateEvent(event: EventFolder) {
+        if (!event.id) return;
+        const circles = await db.circles.where('eventId').equals(event.id).toArray();
+        const orderRecord = await db.eventOrders.get(event.id);
         
+        const newId = await db.events.add({ 
+          name: event.name + ' (Copy)', 
+          date: event.date, 
+          mapPdf: event.mapPdf 
+        });
+
         const newUuidsMap = new Map<string, string>();
-        for (const c of data.circles) {
-          const oldUuid = c.uuid || c.id; 
+        for (const c of circles) {
+          const oldUuid = c.uuid;
           c.uuid = crypto.randomUUID();
           c.eventId = newId;
-          delete c.id;
           newUuidsMap.set(oldUuid, c.uuid);
-          await db.circles.add(c); 
+          await db.circles.add(c);
         }
 
-        if (data.eventOrders && data.eventOrders.circleUuids) {
-          const newOrder = data.eventOrders.circleUuids.map((u: string) => newUuidsMap.get(u)).filter(Boolean) as string[];
-          await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
-        } else {
-          const newOrder = data.circles.map((c: any) => c.uuid);
+        if (orderRecord) {
+          const newOrder = orderRecord.circleUuids.map(u => newUuidsMap.get(u)).filter(Boolean) as string[];
           await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
         }
 
+        await this.loadEvents();
+        this.activeContextId = null;
+      },
+
+      async deleteEvent(id: number) {
+        if (!confirm(this.t('deleteEventConfirm'))) return;
+        await db.events.delete(id);
+        await db.circles.where('eventId').equals(id).delete();
+        await db.eventOrders.delete(id);
         await this.init();
-      };
-      reader.readAsText(file);
-    },
-  }));
+        this.activeContextId = null;
+      },
+
+      async refreshCircles() {
+        if (this.currentEvent && this.currentEvent.id !== undefined) {
+          let list = await db.circles.where('eventId').equals(this.currentEvent.id).toArray();
+          const orderRecord = await db.eventOrders.get(this.currentEvent.id);
+          
+          if (orderRecord && orderRecord.circleUuids.length > 0) {
+            const orderMap = new Map();
+            orderRecord.circleUuids.forEach((uuid, index) => orderMap.set(uuid, index));
+            list.sort((a, b) => {
+              const indexA = orderMap.has(a.uuid) ? orderMap.get(a.uuid) : 99999;
+              const indexB = orderMap.has(b.uuid) ? orderMap.get(b.uuid) : 99999;
+              return indexA - indexB;
+            });
+          }
+          
+          this.circles = list;
+        }
+      },
+
+      openImagePreview(circle: Circle) {
+        this.previewImages = circle.images && circle.images.length > 0 
+          ? circle.images 
+          : (circle.image ? [circle.image] : []);
+        this.previewIndex = 0;
+        this.imgZoom = 1.0;
+        this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
+      },
+
+      nextPreview() {
+        this.previewIndex = (this.previewIndex + 1) % this.previewImages.length;
+        this.imgZoom = 1.0;
+        this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
+      },
+      
+      prevPreview() {
+        this.previewIndex = (this.previewIndex - 1 + this.previewImages.length) % this.previewImages.length;
+        this.imgZoom = 1.0;
+        this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
+      },
+
+      updateImgStyle(e: Event) {
+        const img = e.target as HTMLImageElement;
+        if (!img.naturalWidth) return;
+        const containerRatio = 635 / 903;
+        const imgRatio = img.naturalWidth / img.naturalHeight;
+        if (imgRatio > containerRatio) {
+          this.imgStyles = { height: '100%', width: 'auto', maxWidth: 'none', maxHeight: 'none' };
+        } else {
+          this.imgStyles = { width: '100%', height: 'auto', maxWidth: 'none', maxHeight: 'none' };
+        }
+      },
+
+      openAddForm() {
+        this.editingUuid = null;
+        this.newName = '';
+        this.newSpace = '';
+        this.newLinks = [{ url: '' }];
+        this.newImagesPreview = [];
+        this.newFile = null;
+        this.newItems = [{ name: '', price: 0, quantity: 1, isChecked: false }];
+        this.isFormOpen = true;
+        this.isDeleteMode = false;
+      },
+
+      async openEditForm(circle: Circle) {
+        this.editingUuid = circle.uuid;
+        this.newName = circle.name;
+        this.newSpace = circle.space;
+        this.newFile = null;
+        
+        this.newImagesPreview = circle.images && circle.images.length > 0 
+          ? [...circle.images] 
+          : (circle.image ? [circle.image] : []);
+        
+        const existingLinks = circle.links || (circle.link ? [circle.link] : []);
+        this.newLinks = existingLinks.map(u => ({ url: u }));
+        if (this.newLinks.length === 0 || this.newLinks[this.newLinks.length - 1].url !== '') {
+          this.newLinks.push({ url: '' });
+        }
+
+        this.newItems = circle.items.map(i => ({
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity || 1,
+          isChecked: i.isChecked
+        }));
+        if (this.newItems.length === 0 || this.newItems[this.newItems.length - 1].name !== '') {
+          this.newItems.push({ name: '', price: 0, quantity: 1, isChecked: false });
+        }
+        this.isFormOpen = true;
+      },
+
+      async handleImageSelect(e: any) {
+        const files = e.target.files;
+        for (let i = 0; i < files.length; i++) {
+          const dataUrl = await processImage(files[i]);
+          this.newImagesPreview.push(dataUrl);
+        }
+        e.target.value = '';
+      },
+
+      async saveCircle() {
+        if (!this.newName || !this.currentEvent || !this.currentEvent.id) return;
+        
+        const validLinks = this.newLinks
+          .map(l => l.url.trim())
+          .filter(u => u !== '')
+          .map(u => /^https?:\/\//i.test(u) ? u : `https://${u}`);
+          
+        const validItems = this.newItems.filter(i => i.name.trim() !== '').map(i => ({
+          name: i.name,
+          price: Number(i.price) || 0,
+          quantity: Number(i.quantity) || 1,
+          isChecked: i.isChecked || false
+        }));
+        
+        const data: any = {
+          eventId: this.currentEvent.id,
+          name: this.newName,
+          space: this.newSpace,
+          genre: '',
+          links: validLinks,
+          link: validLinks.length > 0 ? validLinks[0] : '',
+          items: validItems,
+          isChecked: false,
+          images: [...this.newImagesPreview],
+          image: this.newImagesPreview.length > 0 ? this.newImagesPreview[0] : ''
+        };
+        
+        if (this.editingUuid) {
+          data.uuid = this.editingUuid;
+          await db.circles.put(data);
+        } else {
+          data.uuid = crypto.randomUUID();
+          await db.circles.add(data);
+          
+          const orderRecord = await db.eventOrders.get(this.currentEvent.id);
+          const uuids = orderRecord ? orderRecord.circleUuids : [];
+          uuids.push(data.uuid);
+          await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: uuids });
+        }
+        
+        this.closeForm();
+        await this.refreshCircles();
+      },
+
+      async toggleItemCheck(circleUuid: string, itemIndex: number) {
+        if (this.isDeleteMode) return;
+        const circle = await db.circles.get(circleUuid);
+        if (circle) {
+          circle.items[itemIndex].isChecked = !circle.items[itemIndex].isChecked;
+          await db.circles.put(circle);
+          await this.refreshCircles();
+
+          if (this.selectedCircle && this.selectedCircle.uuid === circleUuid) {
+            this.selectedCircle = circle;
+          }
+        }
+      },
+
+      toggleDeleteMode() {
+        this.isDeleteMode = !this.isDeleteMode;
+        if (!this.isDeleteMode) this.selectedUuids = [];
+      },
+      selectAll() {
+        this.selectedUuids = this.circles.map(c => c.uuid);
+      },
+      deselectAll() {
+        this.selectedUuids = [];
+      },
+      async deleteSelected() {
+        if (this.selectedUuids.length === 0) return;
+        if (!confirm(`${this.selectedUuids.length}${this.t('deleteSelectedConfirm')}`)) return;
+        await db.circles.bulkDelete(this.selectedUuids);
+        
+        const orderRecord = await db.eventOrders.get(this.currentEvent!.id!);
+        if (orderRecord) {
+          orderRecord.circleUuids = orderRecord.circleUuids.filter(u => !this.selectedUuids.includes(u));
+          await db.eventOrders.put(orderRecord);
+        }
+        
+        this.selectedUuids = [];
+        await this.refreshCircles();
+      },
+
+      checkAutoAddLink(index: number) {
+        if (index === this.newLinks.length - 1 && this.newLinks[index].url !== '') {
+          this.newLinks.push({ url: '' });
+        }
+      },
+      removeLinkInForm(index: number) {
+        this.newLinks.splice(index, 1);
+        if (this.newLinks.length === 0) this.newLinks.push({ url: '' });
+      },
+
+      async uploadMapPdf(e: any) {
+        const file = e.target.files[0];
+        if (!file || !this.currentEvent || !this.currentEvent.id) return;
+        await db.events.update(this.currentEvent.id, { mapPdf: file });
+        this.currentEvent.mapPdf = file;
+        if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
+        
+        this.pdfUrl = URL.createObjectURL(file);
+        this.renderPdf(this.pdfUrl);
+      },
+
+      async resetMapPdf() {
+        if (!this.currentEvent || !this.currentEvent.id || !confirm(this.t('deletePdfConfirm'))) return;
+        await db.events.update(this.currentEvent.id, { mapPdf: undefined });
+        this.currentEvent.mapPdf = undefined;
+        if (this.pdfUrl) URL.revokeObjectURL(this.pdfUrl);
+        this.pdfUrl = null;
+      },
+
+      removeItemInForm(index: number) { this.newItems.splice(index, 1); },
+      checkAutoAdd(index: number) {
+        if (index === this.newItems.length - 1 && this.newItems[index].name !== '') {
+          this.newItems.push({ name: '', price: 0, quantity: 1, isChecked: false });
+        }
+      },
+      get totalPrice(): number {
+        return this.circles.reduce((sum, c) => sum + c.items.reduce((iSum, item) => iSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0), 0);
+      },
+
+      get purchasedSummary() {
+        let total = 0;
+        const list = [];
+        for (const c of this.circles) {
+          const items = c.items.filter(i => i.isChecked);
+          if (items.length > 0) {
+            const subtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
+            total += subtotal;
+            list.push({ circleName: c.name, items, subtotal });
+          }
+        }
+        return { list, total };
+      },
+  
+      get unpurchasedSummary() {
+        let total = 0;
+        const list = [];
+        for (const c of this.circles) {
+          const items = c.items.filter(i => !i.isChecked);
+          if (items.length > 0) {
+            const subtotal = items.reduce((sum, i) => sum + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0);
+            total += subtotal;
+            list.push({ circleName: c.name, items, subtotal });
+          }
+        }
+        return { list, total };
+      },
+
+      generateReceiptImage() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+  
+        const data = this.purchasedSummary;
+        if (data.list.length === 0) return;
+  
+        const scale = 2; 
+        const width = 800 * scale;
+        const padX = 60 * scale;
+        const padY = 40 * scale;
+        
+        let calcY = padY + 40 * scale; 
+        calcY += 50 * scale; 
+        calcY += 30 * scale; 
+        calcY += 3 * scale;  
+        calcY += 30 * scale; 
+        
+        data.list.forEach(group => {
+          calcY += 40 * scale; 
+          group.items.forEach(() => {
+            calcY += 32 * scale; 
+          });
+          calcY += 10 * scale; 
+        });
+        
+        calcY += 5 * scale;
+        calcY += 3 * scale;  
+        calcY += 40 * scale; 
+        calcY += 40 * scale; 
+        
+        const height = calcY + padY;
+  
+        canvas.width = width;
+        canvas.height = height;
+  
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+  
+        const drawText = (text: string, x: number, y: number, maxWidth: number, align: 'left' | 'right' | 'center' = 'left') => {
+          ctx.textAlign = align;
+          let str = text;
+          if (ctx.measureText(str).width > maxWidth) {
+            while (ctx.measureText(str + '...').width > maxWidth && str.length > 0) {
+              str = str.slice(0, -1);
+            }
+            str += '...';
+          }
+          ctx.fillText(str, x, y);
+        };
+  
+        let y = padY + 40 * scale;
+        ctx.fillStyle = '#1c1c1e';
+        ctx.font = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        drawText(this.currentEvent?.name || 'Event', width / 2, y, width - padX * 2, 'center');
+        
+        y += 50 * scale;
+        ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        drawText('PURCHASED LIST', width / 2, y, width - padX * 2, 'center');
+        
+        y += 30 * scale;
+        ctx.strokeStyle = '#1c1c1e';
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(padX, y);
+        ctx.lineTo(width - padX, y);
+        ctx.stroke();
+        
+        y += 40 * scale;
+  
+        data.list.forEach(group => {
+          ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+          ctx.fillStyle = '#1c1c1e';
+          drawText(group.circleName, padX, y, width - padX * 2, 'left');
+          y += 40 * scale;
+  
+          group.items.forEach(item => {
+            const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
+            const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
+            
+            ctx.fillStyle = '#1c1c1e';
+            ctx.font = `500 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+            ctx.textAlign = 'right';
+            const priceWidth = ctx.measureText(priceStr).width;
+            drawText(priceStr, width - padX, y, 150 * scale, 'right');
+
+            ctx.fillStyle = '#8e8e93';
+            ctx.font = `400 ${16 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+            ctx.textAlign = 'right';
+            const metaWidth = metaStr ? ctx.measureText(metaStr).width : 0;
+            if (metaStr) {
+               drawText(metaStr, width - padX - priceWidth - 20 * scale, y, 200 * scale, 'right');
+            }
+
+            ctx.fillStyle = '#1c1c1e';
+            ctx.font = `400 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+            const nameMaxWidth = width - padX * 2 - priceWidth - metaWidth - 40 * scale;
+            drawText(item.name, padX + 20 * scale, y, nameMaxWidth, 'left');
+            
+            y += 32 * scale;
+          });
+          y += 10 * scale;
+        });
+  
+        ctx.strokeStyle = '#1c1c1e';
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(padX, y);
+        ctx.lineTo(width - padX, y);
+        ctx.stroke();
+        
+        y += 40 * scale;
+  
+        ctx.fillStyle = '#1c1c1e';
+        ctx.font = `bold ${28 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        drawText('TOTAL', padX, y, 200 * scale, 'left');
+        drawText(`¥${data.total.toLocaleString()}`, width - padX, y, 300 * scale, 'right');
+  
+        y += 40 * scale;
+        ctx.fillStyle = '#8e8e93';
+        ctx.font = `bold ${18 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        drawText('https://myloot.rabbit1.cc/', width / 2, y, width, 'center');
+  
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${this.currentEvent?.name || 'MyLoot'}_Purchased.png`;
+        document.body.appendChild(a); 
+        a.click();
+        document.body.removeChild(a);
+      },
+
+      async exportData() {
+        if (!this.currentEvent || !this.currentEvent.id) return;
+        const orderRecord = await db.eventOrders.get(this.currentEvent.id);
+        const data = {
+          event: this.currentEvent,
+          circles: this.circles,
+          eventOrders: orderRecord
+        };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${this.currentEvent.name}.json`; a.click();
+      },
+      async importData(e: any) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const data = JSON.parse(reader.result as string);
+          const newId = await db.events.add({ name: data.event.name + ' (Import)', date: data.event.date || new Date().toLocaleDateString() });
+          
+          const newUuidsMap = new Map<string, string>();
+          for (const c of data.circles) {
+            const oldUuid = c.uuid || c.id; 
+            c.uuid = crypto.randomUUID();
+            c.eventId = newId;
+            delete c.id;
+            newUuidsMap.set(oldUuid, c.uuid);
+            await db.circles.add(c); 
+          }
+
+          if (data.eventOrders && data.eventOrders.circleUuids) {
+            const newOrder = data.eventOrders.circleUuids.map((u: string) => newUuidsMap.get(u)).filter(Boolean) as string[];
+            await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
+          } else {
+            const newOrder = data.circles.map((c: any) => c.uuid);
+            await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
+          }
+
+          await this.init();
+        };
+        reader.readAsText(file);
+      }
+    };
+  });
 });
 
 Alpine.start();

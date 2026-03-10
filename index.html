@@ -79,7 +79,7 @@
           <small x-text="t('siteTitle')"></small>
           <h1 x-text="currentEvent?.name"></h1>
         </div>
-        <div class="price-tag">¥<span x-text="totalPrice.toLocaleString()" style="margin-left: 2px"></span></div>
+        <button class="price-tag" @click="isSummaryOpen = true">¥<span x-text="totalPrice.toLocaleString()" style="margin-left: 2px"></span></button>
       </header>
 
       <div class="content-split" id="split-container">
@@ -234,7 +234,7 @@
     </div>
 
     <div class="floating-modal info-modal" x-show="isCircleDetailOpen" x-transition.opacity x-cloak @click="isCircleDetailOpen = false">
-      <div class="form-card about-card" style="height: auto; max-height: 85vh; display: flex; flex-direction: column" @click.stop>
+      <div class="form-card about-card" style="height: auto; max-height: 85dvh; display: flex; flex-direction: column" @click.stop>
         <template x-if="selectedCircle">
           <div style="display: flex; flex-direction: column; flex: 1; min-height: 0">
             <header class="modal-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-shrink: 0">
@@ -262,7 +262,7 @@
                         <div class="item-name" x-text="item.name"></div>
                         <div style="font-size: 12px; color: var(--mut)"><span x-text="'@' + (item.price || 0).toLocaleString()"></span> x <span x-text="item.quantity || 1"></span></div>
                       </div>
-                      <div class="price-tag" style="padding: 2px 8px; font-size: 14px; flex-shrink: 0">¥<span x-text="((item.price || 0) * (item.quantity || 1)).toLocaleString()" style="margin-left: 2px"></span></div>
+                      <div class="price-tag" style="padding: 2px 8px; font-size: 14px; flex-shrink: 0; cursor: default">¥<span x-text="((item.price || 0) * (item.quantity || 1)).toLocaleString()" style="margin-left: 2px"></span></div>
                     </div>
                   </label>
                 </template>
@@ -271,6 +271,72 @@
             </div>
           </div>
         </template>
+      </div>
+    </div>
+
+    <div class="floating-modal info-modal" x-show="isSummaryOpen" x-transition.opacity x-cloak @click="isSummaryOpen = false">
+      <div class="form-card about-card" style="height: auto; max-height: 85dvh; display: flex; flex-direction: column; background: var(--bg); padding: 16px" @click.stop>
+        <header class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0">
+          <h3 style="margin: 0; font-size: 18px" x-text="t('summary')"></h3>
+          <button class="icon-btn clear" @click="isSummaryOpen = false"><span class="material-icons-round">close</span></button>
+        </header>
+
+        <div class="summary-paper">
+          <div x-show="purchasedSummary.list.length > 0" class="summary-section">
+            <div class="summary-section-header">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <h4 x-text="t('purchased')"></h4>
+                <button @click="generateReceiptImage()" class="icon-btn" :title="t('generateImage')" style="border: 1px solid var(--brd); border-radius: 4px; padding: 2px 6px; font-size: 11px; background: var(--bg)">
+                  <span class="material-icons-round" style="font-size: 14px; margin-right: 4px">image</span>
+                  <span x-text="t('generateImage')"></span>
+                </button>
+              </div>
+              <div>¥<span x-text="purchasedSummary.total.toLocaleString()"></span></div>
+            </div>
+            <div style="display: block">
+              <template x-for="(group, idx) in purchasedSummary.list" :key="idx">
+                <div class="summary-group">
+                  <div class="summary-circle-name" x-text="group.circleName"></div>
+                  <template x-for="(item, iIdx) in group.items" :key="iIdx">
+                    <div class="summary-item-row">
+                      <div class="summary-item-name" x-text="item.name"></div>
+                      <div class="summary-item-meta" x-show="item.quantity > 1 || item.price > 0"><span x-text="'@' + (item.price || 0).toLocaleString()"></span> x <span x-text="item.quantity || 1"></span></div>
+                      <div class="summary-item-price">¥<span x-text="((item.price || 0) * (item.quantity || 1)).toLocaleString()"></span></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div x-show="unpurchasedSummary.list.length > 0" class="summary-section">
+            <div class="summary-section-header">
+              <h4 x-text="t('unpurchased')"></h4>
+              <div>¥<span x-text="unpurchasedSummary.total.toLocaleString()"></span></div>
+            </div>
+            <div style="display: block">
+              <template x-for="(group, idx) in unpurchasedSummary.list" :key="idx">
+                <div class="summary-group">
+                  <div class="summary-circle-name" x-text="group.circleName"></div>
+                  <template x-for="(item, iIdx) in group.items" :key="iIdx">
+                    <div class="summary-item-row">
+                      <div class="summary-item-name" x-text="item.name"></div>
+                      <div class="summary-item-meta" x-show="item.quantity > 1 || item.price > 0"><span x-text="'@' + (item.price || 0).toLocaleString()"></span> x <span x-text="item.quantity || 1"></span></div>
+                      <div class="summary-item-price">¥<span x-text="((item.price || 0) * (item.quantity || 1)).toLocaleString()"></span></div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div x-show="unpurchasedSummary.list.length === 0 && purchasedSummary.list.length === 0" style="color: var(--mut); font-size: 13px; text-align: center; padding: 20px 0" x-text="t('purchaseListEmpty')"></div>
+        </div>
+
+        <div class="summary-total-row">
+          <div x-text="t('total')"></div>
+          <div>¥<span x-text="totalPrice.toLocaleString()"></span></div>
+        </div>
       </div>
     </div>
 
@@ -320,7 +386,7 @@
     </div>
 
     <div class="floating-modal info-modal" x-show="isAboutOpen" x-transition.opacity x-cloak @click="isAboutOpen = false">
-      <div class="form-card about-card" @click.stop>
+      <div class="form-card about-card" style="max-height: 85dvh" @click.stop>
         <header class="modal-header" style="display: flex; justify-content: space-between; align-items: center">
           <h3 x-text="t('aboutApp')"></h3>
         </header>
@@ -362,6 +428,13 @@
               <ul>
                 <li x-text="t('usageStep4Desc1')"></li>
                 <li x-text="t('usageStep4Desc2')"></li>
+              </ul>
+            </section>
+            <section>
+              <h4 x-text="t('usageStep5Title')"></h4>
+              <ul>
+                <li x-text="t('usageStep5Desc1')"></li>
+                <li x-text="t('usageStep5Desc2')"></li>
               </ul>
             </section>
           </div>
