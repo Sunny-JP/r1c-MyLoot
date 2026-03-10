@@ -903,6 +903,75 @@ document.addEventListener('alpine:init', () => {
         return { list, total };
       },
 
+      handleImportFileSelect(e: any) {
+        const file = e.target.files[0];
+        if (file) {
+          this.importModal.file = file;
+          this.importModal.fileName = file.name;
+        } else {
+          this.importModal.file = null;
+          this.importModal.fileName = '';
+        }
+      },
+
+      executeImport() {
+        if (!this.importModal.file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const data = JSON.parse(reader.result as string);
+            
+            if (this.importModal.mode === 'new') {
+              const newId = await db.events.add({ name: data.event.name + ' (Import)', date: data.event.date || new Date().toLocaleDateString() });
+              
+              const newUuidsMap = new Map<string, string>();
+              for (const c of data.circles) {
+                const oldUuid = c.uuid || c.id; 
+                c.uuid = crypto.randomUUID();
+                c.eventId = newId;
+                delete c.id;
+                newUuidsMap.set(oldUuid, c.uuid);
+                await db.circles.add(c); 
+              }
+
+              if (data.eventOrders && data.eventOrders.circleUuids) {
+                const newOrder = data.eventOrders.circleUuids.map((u: string) => newUuidsMap.get(u)).filter(Boolean) as string[];
+                await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
+              } else {
+                const newOrder = data.circles.map((c: any) => c.uuid);
+                await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
+              }
+            } else if (this.importModal.mode === 'append' && this.currentEvent && this.currentEvent.id) {
+              const newCircleUuids: string[] = [];
+              for (const c of data.circles) {
+                c.uuid = crypto.randomUUID();
+                c.eventId = this.currentEvent.id;
+                delete c.id;
+                newCircleUuids.push(c.uuid);
+                await db.circles.add(c); 
+              }
+              
+              const orderRecord = await db.eventOrders.get(this.currentEvent.id);
+              if (orderRecord) {
+                orderRecord.circleUuids.push(...newCircleUuids);
+                await db.eventOrders.put(orderRecord);
+              } else {
+                await db.eventOrders.put({ eventId: this.currentEvent.id, circleUuids: newCircleUuids });
+              }
+            }
+
+            this.importModal.isOpen = false;
+            this.importModal.file = null;
+            this.importModal.fileName = '';
+            await this.init();
+          } catch (e) {
+            console.error("Import failed:", e);
+            alert("Failed to import data.");
+          }
+        };
+        reader.readAsText(this.importModal.file);
+      },
+
       generateReceiptImage() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -913,10 +982,9 @@ document.addEventListener('alpine:init', () => {
   
         const scale = 2; 
         const width = 800 * scale;
-        const padX = 60 * scale;
-        const padY = 40 * scale;
+        const padding = 60 * scale;
         
-        let calcY = padY + 40 * scale; 
+        let calcY = padding + 40 * scale;
         calcY += 50 * scale; 
         calcY += 30 * scale; 
         calcY += 3 * scale;  
@@ -930,12 +998,14 @@ document.addEventListener('alpine:init', () => {
           calcY += 10 * scale; 
         });
         
-        calcY += 5 * scale;
+        calcY += 20 * scale; 
         calcY += 3 * scale;  
+        calcY += 30 * scale; 
+        calcY += 30 * scale; 
         calcY += 40 * scale; 
-        calcY += 40 * scale; 
+        calcY += 20 * scale; 
         
-        const height = calcY + padY;
+        const height = calcY + padding;
   
         canvas.width = width;
         canvas.height = height;
@@ -955,29 +1025,29 @@ document.addEventListener('alpine:init', () => {
           ctx.fillText(str, x, y);
         };
   
-        let y = padY + 40 * scale;
+        let y = padding + 40 * scale;
         ctx.fillStyle = '#1c1c1e';
         ctx.font = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText(this.currentEvent?.name || 'Event', width / 2, y, width - padX * 2, 'center');
+        drawText(this.currentEvent?.name || 'Event', width / 2, y, width - padding * 2, 'center');
         
         y += 50 * scale;
         ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('PURCHASED LIST', width / 2, y, width - padX * 2, 'center');
+        drawText('PURCHASED LIST', width / 2, y, width - padding * 2, 'center');
         
         y += 30 * scale;
         ctx.strokeStyle = '#1c1c1e';
         ctx.lineWidth = 3 * scale;
         ctx.beginPath();
-        ctx.moveTo(padX, y);
-        ctx.lineTo(width - padX, y);
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
         ctx.stroke();
         
-        y += 40 * scale;
+        y += 30 * scale;
   
         data.list.forEach(group => {
           ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
           ctx.fillStyle = '#1c1c1e';
-          drawText(group.circleName, padX, y, width - padX * 2, 'left');
+          drawText(group.circleName, padding, y, width - padding * 2, 'left');
           y += 40 * scale;
   
           group.items.forEach(item => {
@@ -988,44 +1058,45 @@ document.addEventListener('alpine:init', () => {
             ctx.font = `500 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
             ctx.textAlign = 'right';
             const priceWidth = ctx.measureText(priceStr).width;
-            drawText(priceStr, width - padX, y, 150 * scale, 'right');
+            drawText(priceStr, width - padding, y, 150 * scale, 'right');
 
             ctx.fillStyle = '#8e8e93';
-            ctx.font = `400 ${16 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+            ctx.font = `400 ${16 * scale}px monospace`;
             ctx.textAlign = 'right';
             const metaWidth = metaStr ? ctx.measureText(metaStr).width : 0;
             if (metaStr) {
-               drawText(metaStr, width - padX - priceWidth - 20 * scale, y, 200 * scale, 'right');
+               drawText(metaStr, width - padding - priceWidth - 20 * scale, y, 200 * scale, 'right');
             }
 
             ctx.fillStyle = '#1c1c1e';
             ctx.font = `400 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-            const nameMaxWidth = width - padX * 2 - priceWidth - metaWidth - 40 * scale;
-            drawText(item.name, padX + 20 * scale, y, nameMaxWidth, 'left');
+            const nameMaxWidth = width - padding * 2 - priceWidth - metaWidth - 40 * scale;
+            drawText(item.name, padding + 20 * scale, y, nameMaxWidth, 'left');
             
             y += 32 * scale;
           });
           y += 10 * scale;
         });
   
+        y += 20 * scale; 
         ctx.strokeStyle = '#1c1c1e';
         ctx.lineWidth = 3 * scale;
         ctx.beginPath();
-        ctx.moveTo(padX, y);
-        ctx.lineTo(width - padX, y);
+        ctx.moveTo(padding, y);
+        ctx.lineTo(width - padding, y);
         ctx.stroke();
         
         y += 40 * scale;
   
         ctx.fillStyle = '#1c1c1e';
         ctx.font = `bold ${28 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('TOTAL', padX, y, 200 * scale, 'left');
-        drawText(`¥${data.total.toLocaleString()}`, width - padX, y, 300 * scale, 'right');
+        drawText('TOTAL', padding, y, 200 * scale, 'left');
+        drawText(`¥${data.total.toLocaleString()}`, width - padding, y, 300 * scale, 'right');
   
         y += 40 * scale;
         ctx.fillStyle = '#8e8e93';
         ctx.font = `bold ${18 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('https://myloot.rabbit1.cc/', width / 2, y, width, 'center');
+        drawText('MyLoot', width / 2, y, width, 'center');
   
         const dataUrl = canvas.toDataURL('image/png');
         
@@ -1047,36 +1118,6 @@ document.addEventListener('alpine:init', () => {
         };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${this.currentEvent.name}.json`; a.click();
-      },
-      async importData(e: any) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const data = JSON.parse(reader.result as string);
-          const newId = await db.events.add({ name: data.event.name + ' (Import)', date: data.event.date || new Date().toLocaleDateString() });
-          
-          const newUuidsMap = new Map<string, string>();
-          for (const c of data.circles) {
-            const oldUuid = c.uuid || c.id; 
-            c.uuid = crypto.randomUUID();
-            c.eventId = newId;
-            delete c.id;
-            newUuidsMap.set(oldUuid, c.uuid);
-            await db.circles.add(c); 
-          }
-
-          if (data.eventOrders && data.eventOrders.circleUuids) {
-            const newOrder = data.eventOrders.circleUuids.map((u: string) => newUuidsMap.get(u)).filter(Boolean) as string[];
-            await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
-          } else {
-            const newOrder = data.circles.map((c: any) => c.uuid);
-            await db.eventOrders.put({ eventId: newId, circleUuids: newOrder });
-          }
-
-          await this.init();
-        };
-        reader.readAsText(file);
       }
     };
   });

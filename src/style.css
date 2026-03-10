@@ -130,7 +130,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .form-footer { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
 
 .btn-pill { padding: 0 16px; height: 36px; box-sizing: border-box; line-height: 1; border-radius: 20px; border: 1px solid var(--brd); background: var(--bg); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--txt); display: flex; align-items: center; justify-content: center; }
-.btn-pill.primary { background: var(--p); color: #ffffff !important; border: none; transition: background 0.3s, color 0.3s; }
+.btn-pill.primary { background: var(--p); color: #ffffff !important; border: none; }
 .btn-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-pill .material-icons-round { font-size: 18px; }
 
@@ -261,7 +261,7 @@ body.dark .context-btn:not(.del) { color: #ffffff; }
 .summary-item-row { display: flex; align-items: baseline; font-size: 13px; margin-bottom: 2px; color: var(--txt); }
 .summary-item-row:last-child { margin-bottom: 0; }
 .summary-item-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; }
-.summary-item-meta { font-size: 12px; color: var(--mut); margin: 0 8px; font-weight: 400; font-family: monospace; white-space: nowrap; }
+.summary-item-meta { font-size: 11px; color: var(--mut); margin: 0 8px; font-weight: 400; white-space: nowrap; }
 .summary-item-price { font-weight: 500; width: auto; min-width: 50px; text-align: right; white-space: nowrap; }
 .summary-total-row { margin-top: 12px; padding-top: 12px; border-top: 2px solid var(--txt); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; font-weight: 700; font-size: 18px; color: var(--txt); }
 

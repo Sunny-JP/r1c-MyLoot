@@ -59,7 +59,7 @@
       <footer class="side-footer">
         <div style="display: flex; gap: 4px; margin-bottom: 8px">
           <button class="btn-pill" style="flex: 1" @click="exportData()" x-text="t('export')"></button>
-          <label class="btn-pill" style="flex: 1; text-align: center"><span x-text="t('import')"></span><input type="file" @change="importData" hidden /></label>
+          <button class="btn-pill" style="flex: 1" @click="importModal.isOpen = true; importModal.file = null; importModal.fileName = ''; isMenuOpen = false;" x-text="t('import')"></button>
         </div>
         <button @click="isSettingsOpen = true; isMenuOpen = false" class="btn-pill" style="width: 100%; margin-bottom: 8px; gap: 4px">
           <span class="material-icons-round" style="font-size: 18px">settings</span>
