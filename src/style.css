@@ -130,7 +130,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .form-footer { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
 
 .btn-pill { padding: 0 16px; height: 36px; box-sizing: border-box; line-height: 1; border-radius: 20px; border: 1px solid var(--brd); background: var(--bg); cursor: pointer; font-size: 13px; font-weight: 600; color: var(--txt); display: flex; align-items: center; justify-content: center; }
-.btn-pill.primary { background: var(--p); color: var(--p-contrast); border: none; transition: background 0.3s, color 0.3s; }
+.btn-pill.primary { background: var(--p); color: #ffffff !important; border: none; transition: background 0.3s, color 0.3s; }
 .btn-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-pill .material-icons-round { font-size: 18px; }
 
@@ -190,7 +190,6 @@ body.dark .link-badge { background: var(--card); color: var(--txt); border-color
 
 .floating-modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.6); }
 .image-modal { background: rgba(0, 0, 0, 0.85); flex-direction: column; gap: 16px; }
-.modal-close-btn { position: absolute; top: 16px; right: 16px; background: rgba(0, 0, 0, 0.5); border-radius: 50%; width: 44px; height: 44px; z-index: 10; }
 
 .preview-window { background: var(--card); border-radius: 8px; overflow: auto; width: 90vw; max-width: calc(80vh * (635 / 903)); aspect-ratio: 635 / 903; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); -webkit-overflow-scrolling: touch; }
 .preview-window img { display: block; }
@@ -225,7 +224,8 @@ body.dark .link-badge { background: var(--card); color: var(--txt); border-color
 .icon-btn.clear .material-icons-round { font-size: 18px; }
 
 .context-menu { position: absolute; inset: 0; background: var(--card); border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 5; border: 1px solid var(--p); }
-.context-btn { border: none; background: none; color: var(--p); cursor: pointer; padding: 8px; border-radius: 50%; }
+.context-btn { border: none; background: none; color: var(--txt); cursor: pointer; padding: 8px; border-radius: 50%; }
+body.dark .context-btn:not(.del) { color: #ffffff; }
 .context-btn:hover { background: var(--bg); }
 .context-btn.del { color: var(--dng); }
 

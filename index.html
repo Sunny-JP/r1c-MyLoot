@@ -278,7 +278,6 @@
       <div class="form-card about-card" style="height: auto; max-height: 85dvh; display: flex; flex-direction: column; background: var(--bg); padding: 16px" @click.stop>
         <header class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0">
           <h3 style="margin: 0; font-size: 18px" x-text="t('summary')"></h3>
-          <button class="icon-btn clear" @click="isSummaryOpen = false"><span class="material-icons-round">close</span></button>
         </header>
 
         <div class="summary-paper">
@@ -511,7 +510,6 @@
     </div>
 
     <div class="floating-modal image-modal" x-show="previewImages.length > 0" x-transition.opacity x-cloak @click="previewImages = []">
-      <button class="icon-btn light modal-close-btn" @click.stop="previewImages = []"><span class="material-icons-round">close</span></button>
       <button class="slider-btn prev" x-show="previewImages.length > 1" @click.stop="prevPreview()"><span class="material-icons-round">chevron_left</span></button>
 
       <div class="preview-window" id="img-scroll-wrapper" @click.stop @dblclick.stop="toggleImgZoom($event)" @touchstart="handleImgTouchStart" @touchmove="handleImgTouchMove">
