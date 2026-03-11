@@ -21,6 +21,100 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 registerSW({ immediate: true });
 
+const drawWrappedText = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  align: 'left' | 'right' | 'center' = 'left'
+): number => {
+  ctx.textAlign = align;
+  ctx.textBaseline = 'top';
+  const words = Array.from(text);
+  let line = '';
+  let lineCount = 0;
+  let currentY = y;
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n];
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      ctx.fillText(line, x, currentY);
+      line = words[n];
+      currentY += lineHeight;
+      lineCount++;
+    } else {
+      line = testLine;
+    }
+  }
+  ctx.fillText(line, x, currentY);
+  lineCount++;
+  return lineCount * lineHeight;
+};
+
+const getWrappedTextHeight = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  lineHeight: number
+): number => {
+  const words = Array.from(text);
+  let line = '';
+  let lineCount = 0;
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n];
+    const metrics = ctx.measureText(testLine);
+    const testWidth = metrics.width;
+    if (testWidth > maxWidth && n > 0) {
+      line = words[n];
+      lineCount++;
+    } else {
+      line = testLine;
+    }
+  }
+  lineCount++;
+  return lineCount * lineHeight;
+};
+
+const measureItemTextWithIndent = (
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  fullMaxWidth: number,
+  reservedWidth: number,
+  indentWidth: number,
+  scale: number
+): { lines: string[], needsExtraLine: boolean } => {
+  const words = Array.from(text);
+  let line = '';
+  const lines: string[] = [];
+  const maxW = fullMaxWidth - indentWidth;
+  
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + words[n];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > maxW && n > 0) {
+      lines.push(line);
+      line = words[n];
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length === 0) lines.push('');
+  
+  const lastLineWidth = ctx.measureText(lines[lines.length - 1]).width;
+  const textRight = indentWidth + lastLineWidth;
+  const availableRight = fullMaxWidth - reservedWidth - 10 * scale;
+  
+  const needsExtraLine = textRight > availableRight;
+  
+  return { lines, needsExtraLine };
+};
+
 document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => {
     let savedTheme = localStorage.getItem('themeColor') || 'blue';
@@ -981,31 +1075,79 @@ document.addEventListener('alpine:init', () => {
         if (data.list.length === 0) return;
   
         const scale = 2; 
-        const width = 800 * scale;
-        const padding = 60 * scale;
+        const width = 500 * scale;
+        const padding = 40 * scale;
         
-        let calcY = padding + 40 * scale;
-        calcY += 50 * scale; 
-        calcY += 30 * scale; 
-        calcY += 3 * scale;  
-        calcY += 30 * scale; 
+        const titleFont = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        const subTitleFont = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        const circleFont = `bold ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        const itemFont = `400 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        
+        const metaFontSize = 13;
+        const itemMetaFont = `400 ${metaFontSize * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        
+        const totalLabelFont = `bold ${28 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+        const totalValueFont = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+
+        const primaryColor = '#1c1c1e';
+        const mutColor = '#8e8e93';
+
+        let calcY = padding; // 上部マージン
+        calcY += padding / 2; // 上部余白の微調整
+        
+        // イベント名
+        ctx.font = titleFont;
+        calcY += getWrappedTextHeight(ctx, this.currentEvent?.name || 'Event', width - padding * 2, 40 * scale);
+        
+        calcY += 10 * scale; // イベント名とサブタイトル間の余白
+        calcY += 30 * scale; // サブタイトル (PURCHASED LIST) の高さ
+        calcY += 10 * scale; // サブタイトルと上部罫線間の余白
+        calcY += 30 * scale; // 上部罫線とリスト間の余白
         
         data.list.forEach(group => {
-          calcY += 40 * scale; 
-          group.items.forEach(() => {
-            calcY += 32 * scale; 
+          // サークル名
+          ctx.font = circleFont;
+          calcY += getWrappedTextHeight(ctx, group.circleName, width - padding * 2, 28 * scale);
+          calcY += 4 * scale; // サークル名とアイテム間の余白
+          
+          group.items.forEach(item => {
+            const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
+            const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
+            
+            ctx.font = itemFont;
+            const actualPriceWidth = ctx.measureText(priceStr).width;
+            
+            let actualMetaWidth = 0;
+            if (metaStr) {
+              ctx.font = itemMetaFont;
+              actualMetaWidth = ctx.measureText(metaStr).width;
+            }
+            
+            ctx.font = itemFont;
+            const indentWidth = ctx.measureText('・').width;
+            const fullMaxWidth = width - padding * 2;
+            const reservedWidth = actualPriceWidth + (metaStr ? actualMetaWidth + 10 * scale : 0);
+
+            const { lines, needsExtraLine } = measureItemTextWithIndent(ctx, item.name, fullMaxWidth, reservedWidth, indentWidth, scale);
+            
+            const lineHeight = 24 * scale;
+            // アイテムのテキスト高さ
+            calcY += (lines.length + (needsExtraLine ? 1 : 0)) * lineHeight;
+            calcY += 4 * scale; // アイテム同士の余白
           });
-          calcY += 10 * scale; 
+          calcY += 15 * scale; // サークル同士の余白
         });
         
-        calcY += 20 * scale; 
-        calcY += 3 * scale;  
-        calcY += 30 * scale; 
-        calcY += 30 * scale; 
-        calcY += 40 * scale; 
-        calcY += 20 * scale; 
+        calcY += 10 * scale; // リストと下部罫線間の余白
+        calcY += 30 * scale; // 下部罫線とTOTAL間の余白
+        calcY += 10 * scale; // TOTAL上の追加余白
+        calcY += 32 * scale; // TOTAL の文字高さ
+        calcY += 30 * scale; // TOTAL とフッターURL間の余白
+
+        // フッターURLの高さ
+        calcY += 22 * scale; 
         
-        const height = calcY + padding;
+        const height = calcY + 20 * scale; // 最終的な下部マージン
   
         canvas.width = width;
         canvas.height = height;
@@ -1013,91 +1155,128 @@ document.addEventListener('alpine:init', () => {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
   
-        const drawText = (text: string, x: number, y: number, maxWidth: number, align: 'left' | 'right' | 'center' = 'left') => {
-          ctx.textAlign = align;
-          let str = text;
-          if (ctx.measureText(str).width > maxWidth) {
-            while (ctx.measureText(str + '...').width > maxWidth && str.length > 0) {
-              str = str.slice(0, -1);
-            }
-            str += '...';
-          }
-          ctx.fillText(str, x, y);
-        };
-  
-        let y = padding + 40 * scale;
-        ctx.fillStyle = '#1c1c1e';
-        ctx.font = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText(this.currentEvent?.name || 'Event', width / 2, y, width - padding * 2, 'center');
+        let y = padding; // 上部マージン
+        y += padding / 2; // 上部余白の微調整
+
+        // 1. イベント名
+        ctx.fillStyle = primaryColor;
+        ctx.font = titleFont;
+        y += drawWrappedText(ctx, this.currentEvent?.name || 'Event', width / 2, y, width - padding * 2, 40 * scale, 'center');
         
-        y += 50 * scale;
-        ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('PURCHASED LIST', width / 2, y, width - padding * 2, 'center');
+        y += 10 * scale; // イベント名とサブタイトル間の余白
         
-        y += 30 * scale;
-        ctx.strokeStyle = '#1c1c1e';
-        ctx.lineWidth = 3 * scale;
+        // 2. サブタイトル
+        ctx.font = subTitleFont;
+        drawWrappedText(ctx, 'PURCHASED LIST', width / 2, y, width - padding * 2, 30 * scale, 'center');
+        y += 30 * scale; // サブタイトル (PURCHASED LIST) の高さ
+        y += 10 * scale; // サブタイトルと上部罫線間の余白
+        
+        // 3. 上部罫線
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2 * scale;
         ctx.beginPath();
         ctx.moveTo(padding, y);
         ctx.lineTo(width - padding, y);
         ctx.stroke();
         
-        y += 30 * scale;
+        y += 30 * scale; // 上部罫線とリスト間の余白
   
+        // 4. 明細リスト描画
         data.list.forEach(group => {
-          ctx.font = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-          ctx.fillStyle = '#1c1c1e';
-          drawText(group.circleName, padding, y, width - padding * 2, 'left');
-          y += 40 * scale;
+          // サークル名
+          ctx.font = circleFont;
+          ctx.fillStyle = primaryColor;
+          y += drawWrappedText(ctx, group.circleName, padding, y, width - padding * 2, 28 * scale, 'left');
+          y += 4 * scale; // サークル名とアイテム間の余白
   
           group.items.forEach(item => {
             const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
             const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
             
-            ctx.fillStyle = '#1c1c1e';
-            ctx.font = `500 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-            ctx.textAlign = 'right';
-            const priceWidth = ctx.measureText(priceStr).width;
-            drawText(priceStr, width - padding, y, 150 * scale, 'right');
+            const startY = y;
+            const lineHeight = 24 * scale;
 
-            ctx.fillStyle = '#8e8e93';
-            ctx.font = `400 ${16 * scale}px monospace`;
-            ctx.textAlign = 'right';
-            const metaWidth = metaStr ? ctx.measureText(metaStr).width : 0;
-            if (metaStr) {
-               drawText(metaStr, width - padding - priceWidth - 20 * scale, y, 200 * scale, 'right');
-            }
-
-            ctx.fillStyle = '#1c1c1e';
-            ctx.font = `400 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-            const nameMaxWidth = width - padding * 2 - priceWidth - metaWidth - 40 * scale;
-            drawText(item.name, padding + 20 * scale, y, nameMaxWidth, 'left');
+            ctx.font = itemFont;
+            const indentWidth = ctx.measureText('・').width;
             
-            y += 32 * scale;
+            const actualPriceWidth = ctx.measureText(priceStr).width;
+            let actualMetaWidth = 0;
+            if (metaStr) {
+              ctx.font = itemMetaFont;
+              actualMetaWidth = ctx.measureText(metaStr).width;
+            }
+            
+            ctx.font = itemFont;
+            const fullMaxWidth = width - padding * 2;
+            const reservedWidth = actualPriceWidth + (metaStr ? actualMetaWidth + 10 * scale : 0);
+
+            ctx.fillStyle = primaryColor;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+
+            const { lines, needsExtraLine } = measureItemTextWithIndent(ctx, item.name, fullMaxWidth, reservedWidth, indentWidth, scale);
+            
+            // 品名（「・」とインデントされたテキスト）
+            ctx.fillText('・', padding, y);
+            lines.forEach((lineText, idx) => {
+               ctx.fillText(lineText, padding + indentWidth, y + idx * lineHeight);
+            });
+            
+            const priceY = startY + (lines.length - 1 + (needsExtraLine ? 1 : 0)) * lineHeight;
+            
+            // 小計金額
+            ctx.font = itemFont;
+            ctx.textAlign = 'right';
+            ctx.fillText(priceStr, width - padding, priceY);
+
+            // 単価 x 数量
+            if (metaStr) {
+              ctx.fillStyle = mutColor;
+              ctx.font = itemMetaFont;
+              const baselineOffset = 5.5 * scale;
+              ctx.fillText(metaStr, width - padding - actualPriceWidth - 10 * scale, priceY + baselineOffset);
+            }
+            
+            // アイテムのテキスト高さと余白を加算
+            y += (lines.length + (needsExtraLine ? 1 : 0)) * lineHeight; 
+            y += 4 * scale; // アイテム同士の余白
           });
-          y += 10 * scale;
+          y += 15 * scale; // サークル同士の余白
         });
   
-        y += 20 * scale; 
-        ctx.strokeStyle = '#1c1c1e';
-        ctx.lineWidth = 3 * scale;
+        y += 10 * scale; // リストと下部罫線間の余白
+        
+        // 5. 下部罫線
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2 * scale;
         ctx.beginPath();
         ctx.moveTo(padding, y);
         ctx.lineTo(width - padding, y);
         ctx.stroke();
         
-        y += 40 * scale;
+        y += 30 * scale; // 下部罫線とTOTAL間の余白
+        y += 10 * scale; // TOTAL上の追加余白
   
-        ctx.fillStyle = '#1c1c1e';
-        ctx.font = `bold ${28 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('TOTAL', padding, y, 200 * scale, 'left');
-        drawText(`¥${data.total.toLocaleString()}`, width - padding, y, 300 * scale, 'right');
-  
-        y += 40 * scale;
-        ctx.fillStyle = '#8e8e93';
+        // 6. TOTAL
+        ctx.fillStyle = primaryColor;
+        
+        ctx.font = totalLabelFont;
+        drawWrappedText(ctx, 'TOTAL', padding, y, width / 2 - padding, 28 * scale, 'left');
+        
+        ctx.font = totalValueFont;
+        const totalStr = `¥${data.total.toLocaleString()}`;
+        drawWrappedText(ctx, totalStr, width - padding, y, width / 2 - padding, 32 * scale, 'right');
+        
+        y += 32 * scale; // TOTAL の文字高さ
+        y += 15 * scale; // TOTAL とフッターURL間の余白
+        
+        // 7. フッターURL
+        ctx.fillStyle = mutColor;
         ctx.font = `bold ${18 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawText('MyLoot', width / 2, y, width, 'center');
+        drawWrappedText(ctx, 'https://myloot.rabbit1.cc/', width / 2, y, width, 22 * scale, 'center');
   
+        y += 30 * scale; // フッター下の余白
+
         const dataUrl = canvas.toDataURL('image/png');
         
         const a = document.createElement('a');
