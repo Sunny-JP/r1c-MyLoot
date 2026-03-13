@@ -346,24 +346,24 @@
         <div style="margin-bottom: 16px">
           <span class="group-label" x-text="t('appearance')"></span>
           <div class="segmented-control" style="margin-top: 6px">
-            <button :class="{'active': appearance === 'light'}" @click="appearance = 'light'; localStorage.setItem('appearance', 'light')"><span class="material-icons-round">light_mode</span><span x-text="t('light')"></span></button>
-            <button :class="{'active': appearance === 'dark'}" @click="appearance = 'dark'; localStorage.setItem('appearance', 'dark')"><span class="material-icons-round">dark_mode</span><span x-text="t('dark')"></span></button>
-            <button :class="{'active': appearance === 'system'}" @click="appearance = 'system'; localStorage.setItem('appearance', 'system')"><span class="material-icons-round">settings_brightness</span><span x-text="t('system')"></span></button>
+            <button :class="{'active': appearance === 'light'}" @click="setAppearance('light')"><span class="material-icons-round">light_mode</span><span x-text="t('light')"></span></button>
+            <button :class="{'active': appearance === 'dark'}" @click="setAppearance('dark')"><span class="material-icons-round">dark_mode</span><span x-text="t('dark')"></span></button>
+            <button :class="{'active': appearance === 'system'}" @click="setAppearance('system')"><span class="material-icons-round">settings_brightness</span><span x-text="t('system')"></span></button>
           </div>
         </div>
 
         <div style="margin-bottom: 16px">
           <span class="group-label" x-text="t('themeColor')"></span>
           <div class="color-picker" style="margin-top: 10px">
-            <button class="color-btn" style="background-color: #020166" :class="{'active': themeColor === 'blue'}" @click="themeColor = 'blue'; localStorage.setItem('themeColor', 'blue')"></button>
-            <button class="color-btn" style="background-color: #0288d1" :class="{'active': themeColor === 'sky'}" @click="themeColor = 'sky'; localStorage.setItem('themeColor', 'sky')"></button>
-            <button class="color-btn" style="background-color: #00897b" :class="{'active': themeColor === 'mint'}" @click="themeColor = 'mint'; localStorage.setItem('themeColor', 'mint')"></button>
-            <button class="color-btn" style="background-color: #43a047" :class="{'active': themeColor === 'sage'}" @click="themeColor = 'sage'; localStorage.setItem('themeColor', 'sage')"></button>
-            <button class="color-btn" style="background-color: #f57c00" :class="{'active': themeColor === 'amber'}" @click="themeColor = 'amber'; localStorage.setItem('themeColor', 'amber')"></button>
-            <button class="color-btn" style="background-color: #f4511e" :class="{'active': themeColor === 'coral'}" @click="themeColor = 'coral'; localStorage.setItem('themeColor', 'coral')"></button>
-            <button class="color-btn" style="background-color: #d81b60" :class="{'active': themeColor === 'rose'}" @click="themeColor = 'rose'; localStorage.setItem('themeColor', 'rose')"></button>
-            <button class="color-btn" style="background-color: #8e24aa" :class="{'active': themeColor === 'lilac'}" @click="themeColor = 'lilac'; localStorage.setItem('themeColor', 'lilac')"></button>
-            <button class="color-btn" style="background-color: #424242" :class="{'active': themeColor === 'mono'}" @click="themeColor = 'mono'; localStorage.setItem('themeColor', 'mono')"></button>
+            <button class="color-btn" style="background-color: #020166" :class="{'active': themeColor === 'blue'}" @click="setThemeColor('blue')"></button>
+            <button class="color-btn" style="background-color: #0288d1" :class="{'active': themeColor === 'sky'}" @click="setThemeColor('sky')"></button>
+            <button class="color-btn" style="background-color: #00897b" :class="{'active': themeColor === 'mint'}" @click="setThemeColor('mint')"></button>
+            <button class="color-btn" style="background-color: #43a047" :class="{'active': themeColor === 'sage'}" @click="setThemeColor('sage')"></button>
+            <button class="color-btn" style="background-color: #f57c00" :class="{'active': themeColor === 'amber'}" @click="setThemeColor('amber')"></button>
+            <button class="color-btn" style="background-color: #f4511e" :class="{'active': themeColor === 'coral'}" @click="setThemeColor('coral')"></button>
+            <button class="color-btn" style="background-color: #d81b60" :class="{'active': themeColor === 'rose'}" @click="setThemeColor('rose')"></button>
+            <button class="color-btn" style="background-color: #8e24aa" :class="{'active': themeColor === 'lilac'}" @click="setThemeColor('lilac')"></button>
+            <button class="color-btn" style="background-color: #424242" :class="{'active': themeColor === 'mono'}" @click="setThemeColor('mono')"></button>
           </div>
         </div>
 

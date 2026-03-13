@@ -150,7 +150,7 @@ input[type="radio"]:disabled { opacity: 0.5; cursor: not-allowed; }
 .grid-2col .circle-card { padding: 6px; gap: 6px; }
 .grid-2col .thumb { width: 44px; height: 62px; }
 .grid-2col .top-right-actions { top: 6px; right: 6px; }
-.grid-2col .title-row { padding-right: 40px; margin-bottom: 4px; }
+.grid-2col .title-row { padding-right: 55px; margin-bottom: 4px; }
 .grid-2col .title-row h3 { font-size: 14px; }
 .grid-2col .badge { font-size: 10px; padding: 2px 4px; min-height: 18px; }
 .grid-2col .item-row { font-size: 12px; gap: 2px; }

@@ -112,6 +112,18 @@ const measureItemTextWithIndent = (
   return { lines, needsExtraLine };
 };
 
+const themeColorMap: Record<string, { light: string; dark: string }> = {
+  blue: { light: '#020166', dark: '#1a237e' },
+  sky: { light: '#0288d1', dark: '#01579b' },
+  mint: { light: '#00897b', dark: '#004d40' },
+  sage: { light: '#43a047', dark: '#1b5e20' },
+  amber: { light: '#f57c00', dark: '#b26a00' },
+  coral: { light: '#f4511e', dark: '#bf360c' },
+  rose: { light: '#d81b60', dark: '#880e4f' },
+  lilac: { light: '#8e24aa', dark: '#4a148c' },
+  mono: { light: '#212121', dark: '#121212' }
+};
+
 document.addEventListener('alpine:init', () => {
   Alpine.data('app', () => {
     let savedTheme = localStorage.getItem('themeColor') || 'blue';
@@ -137,6 +149,27 @@ document.addEventListener('alpine:init', () => {
       get isDark() {
         if (this.appearance === 'system') return this.systemIsDark;
         return this.appearance === 'dark';
+      },
+
+      setAppearance(val: string) {
+        this.appearance = val;
+        localStorage.setItem('appearance', val);
+        this.updateMetaThemeColor();
+      },
+
+      setThemeColor(val: string) {
+        this.themeColor = val;
+        localStorage.setItem('themeColor', val);
+        this.updateMetaThemeColor();
+      },
+
+      updateMetaThemeColor() {
+        const colorObj = themeColorMap[this.themeColor] || themeColorMap.blue;
+        const colorCode = this.isDark ? colorObj.dark : colorObj.light;
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) {
+          metaTheme.setAttribute('content', colorCode);
+        }
       },
 
       t(key: keyof typeof translations['ja']) { 
@@ -509,8 +542,10 @@ document.addEventListener('alpine:init', () => {
       async init() {
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
           this.systemIsDark = e.matches;
+          this.updateMetaThemeColor();
         });
 
+        this.updateMetaThemeColor();
         this.initResizer();
         await this.loadEvents();
         
@@ -1077,210 +1112,159 @@ document.addEventListener('alpine:init', () => {
         const scale = 2; 
         const width = 500 * scale;
         const padding = 40 * scale;
+        const paddingTop = 40 * scale;
+        const paddingBottom = 45 * scale;
         
         const titleFont = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
         const subTitleFont = `bold ${22 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
         const circleFont = `bold ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
         const itemFont = `400 ${20 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        
-        const metaFontSize = 13;
-        const itemMetaFont = `400 ${metaFontSize * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        
+        const itemMetaFont = `400 ${13 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
         const totalLabelFont = `bold ${28 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
         const totalValueFont = `bold ${32 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
 
         const primaryColor = '#1c1c1e';
         const mutColor = '#8e8e93';
 
-        let calcY = padding; // 上部マージン
-        calcY += padding / 2; // 上部余白の微調整
-        
-        // イベント名
-        ctx.font = titleFont;
-        calcY += getWrappedTextHeight(ctx, this.currentEvent?.name || 'Event', width - padding * 2, 40 * scale);
-        
-        calcY += 10 * scale; // イベント名とサブタイトル間の余白
-        calcY += 30 * scale; // サブタイトル (PURCHASED LIST) の高さ
-        calcY += 10 * scale; // サブタイトルと上部罫線間の余白
-        calcY += 30 * scale; // 上部罫線とリスト間の余白
-        
-        data.list.forEach(group => {
-          // サークル名
-          ctx.font = circleFont;
-          calcY += getWrappedTextHeight(ctx, group.circleName, width - padding * 2, 28 * scale);
-          calcY += 4 * scale; // サークル名とアイテム間の余白
-          
-          group.items.forEach(item => {
-            const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
-            const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
-            
-            ctx.font = itemFont;
-            const actualPriceWidth = ctx.measureText(priceStr).width;
-            
-            let actualMetaWidth = 0;
-            if (metaStr) {
-              ctx.font = itemMetaFont;
-              actualMetaWidth = ctx.measureText(metaStr).width;
-            }
-            
-            ctx.font = itemFont;
-            const indentWidth = ctx.measureText('・').width;
-            const fullMaxWidth = width - padding * 2;
-            const reservedWidth = actualPriceWidth + (metaStr ? actualMetaWidth + 10 * scale : 0);
+        // 共通レイアウト処理: isDraw が false なら高さ計算のみ、true なら実際に描画する
+        const renderPass = (isDraw: boolean) => {
+          let y = paddingTop;
 
-            const { lines, needsExtraLine } = measureItemTextWithIndent(ctx, item.name, fullMaxWidth, reservedWidth, indentWidth, scale);
-            
-            const lineHeight = 24 * scale;
-            // アイテムのテキスト高さ
-            calcY += (lines.length + (needsExtraLine ? 1 : 0)) * lineHeight;
-            calcY += 4 * scale; // アイテム同士の余白
-          });
-          calcY += 15 * scale; // サークル同士の余白
-        });
-        
-        calcY += 10 * scale; // リストと下部罫線間の余白
-        calcY += 30 * scale; // 下部罫線とTOTAL間の余白
-        calcY += 10 * scale; // TOTAL上の追加余白
-        calcY += 32 * scale; // TOTAL の文字高さ
-        calcY += 30 * scale; // TOTAL とフッターURL間の余白
-
-        // フッターURLの高さ
-        calcY += 22 * scale; 
-        
-        const height = calcY + 20 * scale; // 最終的な下部マージン
-  
-        canvas.width = width;
-        canvas.height = height;
-  
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-  
-        let y = padding; // 上部マージン
-        y += padding / 2; // 上部余白の微調整
-
-        // 1. イベント名
-        ctx.fillStyle = primaryColor;
-        ctx.font = titleFont;
-        y += drawWrappedText(ctx, this.currentEvent?.name || 'Event', width / 2, y, width - padding * 2, 40 * scale, 'center');
-        
-        y += 10 * scale; // イベント名とサブタイトル間の余白
-        
-        // 2. サブタイトル
-        ctx.font = subTitleFont;
-        drawWrappedText(ctx, 'PURCHASED LIST', width / 2, y, width - padding * 2, 30 * scale, 'center');
-        y += 30 * scale; // サブタイトル (PURCHASED LIST) の高さ
-        y += 10 * scale; // サブタイトルと上部罫線間の余白
-        
-        // 3. 上部罫線
-        ctx.strokeStyle = primaryColor;
-        ctx.lineWidth = 2 * scale;
-        ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
-        ctx.stroke();
-        
-        y += 30 * scale; // 上部罫線とリスト間の余白
-  
-        // 4. 明細リスト描画
-        data.list.forEach(group => {
-          // サークル名
-          ctx.font = circleFont;
+          // 1. イベント名
+          ctx.font = titleFont;
           ctx.fillStyle = primaryColor;
-          y += drawWrappedText(ctx, group.circleName, padding, y, width - padding * 2, 28 * scale, 'left');
-          y += 4 * scale; // サークル名とアイテム間の余白
+          if (isDraw) {
+            y += drawWrappedText(ctx, this.currentEvent?.name || 'Event', width / 2, y, width - padding * 2, 40 * scale, 'center');
+          } else {
+            y += getWrappedTextHeight(ctx, this.currentEvent?.name || 'Event', width - padding * 2, 40 * scale);
+          }
+          
+          y += 5 * scale;
+          
+          // 2. サブタイトル
+          ctx.font = subTitleFont;
+          if (isDraw) drawWrappedText(ctx, 'PURCHASED LIST', width / 2, y, width - padding * 2, 30 * scale, 'center');
+          y += 30 * scale;
+          y += 10 * scale;
+          
+          // 3. 上部罫線
+          if (isDraw) {
+            ctx.strokeStyle = primaryColor;
+            ctx.lineWidth = 2 * scale;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.stroke();
+          }
+          y += 30 * scale;
   
-          group.items.forEach(item => {
-            const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
-            const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
-            
-            const startY = y;
-            const lineHeight = 24 * scale;
-
-            ctx.font = itemFont;
-            const indentWidth = ctx.measureText('・').width;
-            
-            const actualPriceWidth = ctx.measureText(priceStr).width;
-            let actualMetaWidth = 0;
-            if (metaStr) {
-              ctx.font = itemMetaFont;
-              actualMetaWidth = ctx.measureText(metaStr).width;
-            }
-            
-            ctx.font = itemFont;
-            const fullMaxWidth = width - padding * 2;
-            const reservedWidth = actualPriceWidth + (metaStr ? actualMetaWidth + 10 * scale : 0);
-
+          // 4. 明細リスト
+          data.list.forEach(group => {
+            ctx.font = circleFont;
             ctx.fillStyle = primaryColor;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
+            if (isDraw) y += drawWrappedText(ctx, group.circleName, padding, y, width - padding * 2, 28 * scale, 'left');
+            else y += getWrappedTextHeight(ctx, group.circleName, width - padding * 2, 28 * scale);
+            y += 4 * scale;
+  
+            group.items.forEach(item => {
+              const priceStr = `¥${((item.price || 0) * (item.quantity || 1)).toLocaleString()}`;
+              const metaStr = (item.quantity > 1 || item.price > 0) ? `@${(item.price || 0).toLocaleString()} x ${item.quantity || 1}` : '';
+              
+              ctx.font = itemFont;
+              const actualPriceWidth = ctx.measureText(priceStr).width;
+              
+              let actualMetaWidth = 0;
+              if (metaStr) {
+                ctx.font = itemMetaFont;
+                actualMetaWidth = ctx.measureText(metaStr).width;
+              }
+              
+              ctx.font = itemFont;
+              const indentWidth = ctx.measureText('・').width;
+              const fullMaxWidth = width - padding * 2;
+              const reservedWidth = actualPriceWidth + (metaStr ? actualMetaWidth + 10 * scale : 0);
 
-            const { lines, needsExtraLine } = measureItemTextWithIndent(ctx, item.name, fullMaxWidth, reservedWidth, indentWidth, scale);
-            
-            // 品名（「・」とインデントされたテキスト）
-            ctx.fillText('・', padding, y);
-            lines.forEach((lineText, idx) => {
-               ctx.fillText(lineText, padding + indentWidth, y + idx * lineHeight);
+              const { lines, needsExtraLine } = measureItemTextWithIndent(ctx, item.name, fullMaxWidth, reservedWidth, indentWidth, scale);
+              const lineHeight = 24 * scale;
+              
+              if (isDraw) {
+                const startY = y;
+                ctx.fillStyle = primaryColor;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+
+                ctx.fillText('・', padding, y);
+                lines.forEach((lineText, idx) => {
+                   ctx.fillText(lineText, padding + indentWidth, y + idx * lineHeight);
+                });
+                
+                const priceY = startY + (lines.length - 1 + (needsExtraLine ? 1 : 0)) * lineHeight;
+                
+                ctx.font = itemFont;
+                ctx.textAlign = 'right';
+                ctx.fillText(priceStr, width - padding, priceY);
+
+                if (metaStr) {
+                  ctx.fillStyle = mutColor;
+                  ctx.font = itemMetaFont;
+                  ctx.fillText(metaStr, width - padding - actualPriceWidth - 10 * scale, priceY + 5.5 * scale);
+                }
+              }
+              
+              y += (lines.length + (needsExtraLine ? 1 : 0)) * lineHeight; 
+              y += 4 * scale;
             });
-            
-            const priceY = startY + (lines.length - 1 + (needsExtraLine ? 1 : 0)) * lineHeight;
-            
-            // 小計金額
-            ctx.font = itemFont;
-            ctx.textAlign = 'right';
-            ctx.fillText(priceStr, width - padding, priceY);
-
-            // 単価 x 数量
-            if (metaStr) {
-              ctx.fillStyle = mutColor;
-              ctx.font = itemMetaFont;
-              const baselineOffset = 5.5 * scale;
-              ctx.fillText(metaStr, width - padding - actualPriceWidth - 10 * scale, priceY + baselineOffset);
-            }
-            
-            // アイテムのテキスト高さと余白を加算
-            y += (lines.length + (needsExtraLine ? 1 : 0)) * lineHeight; 
-            y += 4 * scale; // アイテム同士の余白
+            y += 15 * scale;
           });
-          y += 15 * scale; // サークル同士の余白
-        });
   
-        y += 10 * scale; // リストと下部罫線間の余白
-        
-        // 5. 下部罫線
-        ctx.strokeStyle = primaryColor;
-        ctx.lineWidth = 2 * scale;
-        ctx.beginPath();
-        ctx.moveTo(padding, y);
-        ctx.lineTo(width - padding, y);
-        ctx.stroke();
-        
-        y += 30 * scale; // 下部罫線とTOTAL間の余白
-        y += 10 * scale; // TOTAL上の追加余白
+          y += 10 * scale;
+          
+          // 5. 下部罫線
+          if (isDraw) {
+            ctx.strokeStyle = primaryColor;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.stroke();
+          }
+          
+          y += 20 * scale;
   
-        // 6. TOTAL
-        ctx.fillStyle = primaryColor;
-        
-        ctx.font = totalLabelFont;
-        drawWrappedText(ctx, 'TOTAL', padding, y, width / 2 - padding, 28 * scale, 'left');
-        
-        ctx.font = totalValueFont;
-        const totalStr = `¥${data.total.toLocaleString()}`;
-        drawWrappedText(ctx, totalStr, width - padding, y, width / 2 - padding, 32 * scale, 'right');
-        
-        y += 32 * scale; // TOTAL の文字高さ
-        y += 15 * scale; // TOTAL とフッターURL間の余白
-        
-        // 7. フッターURL
-        ctx.fillStyle = mutColor;
-        ctx.font = `bold ${18 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
-        drawWrappedText(ctx, 'https://myloot.rabbit1.cc/', width / 2, y, width, 22 * scale, 'center');
+          // 6. TOTAL
+          ctx.fillStyle = primaryColor;
+          ctx.font = totalLabelFont;
+          if (isDraw) drawWrappedText(ctx, 'TOTAL', padding, y, width / 2 - padding, 28 * scale, 'left');
+          
+          ctx.font = totalValueFont;
+          if (isDraw) drawWrappedText(ctx, `¥${data.total.toLocaleString()}`, width - padding, y, width / 2 - padding, 32 * scale, 'right');
+          
+          y += 32 * scale;
+          y += 15 * scale;
+          
+          // 7. フッターURL
+          ctx.fillStyle = mutColor;
+          ctx.font = `bold ${18 * scale}px "Noto Sans", "Noto Sans JP", sans-serif`;
+          if (isDraw) drawWrappedText(ctx, 'https://myloot.rabbit1.cc/', width / 2, y, width, 22 * scale, 'center');
   
-        y += 30 * scale; // フッター下の余白
+          y += paddingBottom;
 
-        const dataUrl = canvas.toDataURL('image/png');
-        
+          return y;
+        };
+
+        // 【Pass 1】高さを計算する (isDraw = false)
+        const totalHeight = renderPass(false);
+  
+        // Canvasのサイズを確定して背景を白く塗りつぶす
+        canvas.width = width;
+        canvas.height = totalHeight;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, totalHeight);
+  
+        // 【Pass 2】実際に描画する (isDraw = true)
+        renderPass(true);
+
         const a = document.createElement('a');
-        a.href = dataUrl;
+        a.href = canvas.toDataURL('image/png');
         a.download = `${this.currentEvent?.name || 'MyLoot'}_Purchased.png`;
         document.body.appendChild(a); 
         a.click();
