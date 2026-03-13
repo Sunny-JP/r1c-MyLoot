@@ -488,7 +488,11 @@ document.addEventListener('alpine:init', () => {
           const pdfjsLib = await import('pdfjs-dist');
           pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-          const loadingTask = pdfjsLib.getDocument(url);
+          const loadingTask = pdfjsLib.getDocument({
+            url: url,
+            cMapUrl: '/cmaps/',
+            cMapPacked: true,
+          });
           const pdfDoc = await loadingTask.promise;
           
           setTimeout(async () => {
