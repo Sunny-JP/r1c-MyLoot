@@ -559,10 +559,10 @@ Alpine.data('app', () => {
       const yContent = wrapper.scrollTop + yRect;
 
       let targetZoom = 1.0;
-      if (this.pdfZoom < 2.5) {
-        targetZoom = 3.0;
-      } else if (this.pdfZoom < 4.5) {
-        targetZoom = 5.0;
+      if (this.pdfZoom < 3.0) {
+        targetZoom = 3.5;
+      } else if (this.pdfZoom < 6.5) {
+        targetZoom = 7.0;
       } else {
         targetZoom = 1.0;
       }
