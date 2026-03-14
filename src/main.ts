@@ -124,6 +124,10 @@ const themeColorMap: Record<string, { light: string; dark: string }> = {
   mono: { light: '#212121', dark: '#121212' }
 };
 
+let pdfDocCache: any = null;
+let patchRenderTimeout: number | undefined = undefined;
+let currentRenderTasks: any[] = [];
+
 Alpine.data('app', () => {
   let savedTheme = localStorage.getItem('themeColor') || 'blue';
   const themeMigrationMap: Record<string, string> = {
@@ -137,9 +141,6 @@ Alpine.data('app', () => {
     savedTheme = themeMigrationMap[savedTheme];
     localStorage.setItem('themeColor', savedTheme);
   }
-
-  let pdfDocCache: any = null;
-  let renderTimeout: number | undefined = undefined;
 
   return {
     lang: (localStorage.getItem('lang') || 'ja') as Language,
@@ -211,8 +212,6 @@ Alpine.data('app', () => {
     initialPinchZoom: 1.0,
     pinchCenterX: 0,
     pinchCenterY: 0,
-    
-    currentRenderZoom: 1.0,
 
     imgZoom: 1.0,
     initialImgPinchDist: 0,
@@ -302,8 +301,190 @@ Alpine.data('app', () => {
       this.isCircleDetailOpen = true;
     },
 
+    hidePatches() {
+      document.querySelectorAll('.pdf-patch-canvas').forEach(el => {
+        const patch = el as HTMLElement;
+        patch.style.transition = 'none';
+        patch.style.opacity = '0';
+        patch.setAttribute('data-active', 'false');
+      });
+    },
+
+    triggerPatchRender() {
+      if (patchRenderTimeout) window.clearTimeout(patchRenderTimeout);
+      patchRenderTimeout = window.setTimeout(() => {
+        this.executePatchRender();
+      }, 300);
+    },
+
+    async executePatchRender() {
+      if (!pdfDocCache) return;
+      const wrapper = document.getElementById('pdf-scroll-wrapper');
+      if (!wrapper) return;
+
+      currentRenderTasks.forEach(task => {
+        try { task.cancel(); } catch(e){}
+      });
+      currentRenderTasks = [];
+
+      const wrapRect = wrapper.getBoundingClientRect();
+      const pixelRatio = window.devicePixelRatio || 2;
+      const pageWrappers = document.querySelectorAll('.pdf-page-wrapper');
+      
+      for (let i = 0; i < pageWrappers.length; i++) {
+        const pWrap = pageWrappers[i] as HTMLElement;
+        const patches = pWrap.querySelectorAll('.pdf-patch-canvas') as NodeListOf<HTMLCanvasElement>;
+        
+        const pRect = pWrap.getBoundingClientRect();
+        
+        if (pRect.bottom < wrapRect.top || pRect.top > wrapRect.bottom || pRect.right < wrapRect.left || pRect.left > wrapRect.right) {
+          continue; 
+        }
+        
+        const visibleLeft = Math.max(0, wrapRect.left - pRect.left);
+        const visibleTop = Math.max(0, wrapRect.top - pRect.top);
+        const visibleRight = Math.min(pRect.width, wrapRect.right - pRect.left);
+        const visibleBottom = Math.min(pRect.height, wrapRect.bottom - pRect.top);
+        
+        const patchW = visibleRight - visibleLeft;
+        const patchH = visibleBottom - visibleTop;
+        
+        if (patchW <= 0 || patchH <= 0) continue;
+
+        let activePatch: HTMLCanvasElement | null = null;
+        let nextPatch: HTMLCanvasElement;
+
+        if (patches[0].getAttribute('data-active') === 'true') {
+          activePatch = patches[0];
+          nextPatch = patches[1];
+        } else if (patches[1].getAttribute('data-active') === 'true') {
+          activePatch = patches[1];
+          nextPatch = patches[0];
+        } else {
+          nextPatch = patches[0];
+        }
+
+        nextPatch.style.transition = 'none';
+        nextPatch.style.opacity = '0';
+        nextPatch.style.left = visibleLeft + 'px';
+        nextPatch.style.top = visibleTop + 'px';
+        nextPatch.style.width = patchW + 'px';
+        nextPatch.style.height = patchH + 'px';
+        
+        nextPatch.width = Math.floor(patchW * pixelRatio);
+        nextPatch.height = Math.floor(patchH * pixelRatio);
+
+        const ctx = nextPatch.getContext('2d');
+        if (!ctx) continue;
+        
+        const page = await pdfDocCache.getPage(i + 1);
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        const dynamicScale = pRect.width / baseViewport.width;
+        const viewport = page.getViewport({ scale: dynamicScale });
+
+        const transform = [
+          pixelRatio, 0, 
+          0, pixelRatio, 
+          -visibleLeft * pixelRatio, -visibleTop * pixelRatio
+        ];
+
+        const renderTask = page.render({
+          canvasContext: ctx,
+          viewport: viewport,
+          transform: transform
+        });
+        
+        currentRenderTasks.push(renderTask);
+        try { 
+          await renderTask.promise; 
+          
+          nextPatch.style.transition = 'opacity 0.25s ease-in-out';
+          void nextPatch.offsetWidth;
+          nextPatch.style.opacity = '1';
+          nextPatch.setAttribute('data-active', 'true');
+          
+          if (activePatch) {
+            activePatch.style.transition = 'opacity 0.25s ease-in-out';
+            activePatch.style.opacity = '0';
+            activePatch.setAttribute('data-active', 'false');
+          }
+        } catch(e) { }
+      }
+    },
+
+    async renderPdf(url: string) {
+      try {
+        if (pdfDocCache) {
+          try { pdfDocCache.destroy(); } catch(e){}
+        }
+
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+        const loadingTask = pdfjsLib.getDocument({ url, cMapUrl: '/cmaps/', cMapPacked: true });
+        
+        pdfDocCache = await loadingTask.promise;
+        this.pdfZoom = 1.0;
+        
+        const container = document.getElementById('pdf-canvas-container');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        for (let pageNum = 1; pageNum <= pdfDocCache.numPages; pageNum++) {
+          const pageWrapper = document.createElement('div');
+          pageWrapper.className = 'pdf-page-wrapper';
+          pageWrapper.style.position = 'relative';
+          pageWrapper.style.marginBottom = '4px';
+
+          const bgCanvas = document.createElement('canvas');
+          bgCanvas.className = 'pdf-bg-canvas';
+          bgCanvas.style.width = '100%';
+          bgCanvas.style.height = 'auto';
+          bgCanvas.style.display = 'block';
+          
+          const patchCanvas1 = document.createElement('canvas');
+          patchCanvas1.className = 'pdf-patch-canvas';
+          patchCanvas1.style.position = 'absolute';
+          patchCanvas1.style.opacity = '0';
+          patchCanvas1.style.pointerEvents = 'none';
+          patchCanvas1.setAttribute('data-active', 'false');
+
+          const patchCanvas2 = document.createElement('canvas');
+          patchCanvas2.className = 'pdf-patch-canvas';
+          patchCanvas2.style.position = 'absolute';
+          patchCanvas2.style.opacity = '0';
+          patchCanvas2.style.pointerEvents = 'none';
+          patchCanvas2.setAttribute('data-active', 'false');
+
+          pageWrapper.appendChild(bgCanvas);
+          pageWrapper.appendChild(patchCanvas1);
+          pageWrapper.appendChild(patchCanvas2);
+          container.appendChild(pageWrapper);
+
+          const page = await pdfDocCache.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 2.0 });
+          bgCanvas.width = viewport.width;
+          bgCanvas.height = viewport.height;
+          const ctx = bgCanvas.getContext('2d');
+          if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
+        }
+
+        const wrapper = document.getElementById('pdf-scroll-wrapper');
+        if (wrapper && !wrapper.hasAttribute('data-scroll-bound')) {
+          wrapper.setAttribute('data-scroll-bound', 'true');
+          wrapper.addEventListener('scroll', () => {
+            this.triggerPatchRender();
+          });
+        }
+        
+        this.triggerPatchRender();
+      } catch (e) {
+        console.error(e);
+      }
+    },
+
     handleTouchStart(e: TouchEvent) {
       if (e.touches.length === 2) {
+        this.hidePatches();
         this.initialPinchDist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -352,7 +533,8 @@ Alpine.data('app', () => {
           this.pinchCenterX = newPinchCenterX;
           this.pinchCenterY = newPinchCenterY;
           
-          this.triggerRender();
+          this.hidePatches();
+          this.triggerPatchRender();
         }
       }
     },
@@ -383,11 +565,12 @@ Alpine.data('app', () => {
       const scale = targetZoom / this.pdfZoom;
       this.pdfZoom = targetZoom;
       
-      this.triggerRender();
+      this.hidePatches();
 
       setTimeout(() => {
         wrapper.scrollLeft = (xContent * scale) - xRect;
         wrapper.scrollTop = (yContent * scale) - yRect;
+        this.triggerPatchRender();
       }, 50);
     },
 
@@ -514,69 +697,6 @@ Alpine.data('app', () => {
     newImagesPreview: [] as string[],
     newFile: null as File | null,
 
-    async renderPdf(url: string) {
-      try {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-        const loadingTask = pdfjsLib.getDocument({ url, cMapUrl: '/cmaps/', cMapPacked: true });
-        
-        pdfDocCache = await loadingTask.promise;
-        this.pdfZoom = 1.0;
-        this.currentRenderZoom = 1.0;
-        
-        await this.executeRender(1.0);
-      } catch (e) {
-        console.error(e);
-      }
-    },
-
-    triggerRender() {
-      if (renderTimeout) window.clearTimeout(renderTimeout);
-      renderTimeout = window.setTimeout(() => {
-        if (Math.abs(this.pdfZoom - this.currentRenderZoom) > 0.2) {
-          this.executeRender(this.pdfZoom);
-        }
-      }, 300);
-    },
-
-    async executeRender(targetZoom: number) {
-      if (!pdfDocCache) return;
-      const container = document.getElementById('pdf-canvas-container');
-      if (!container) return;
-
-      this.currentRenderZoom = targetZoom;
-      const tempContainer = document.createElement('div');
-
-      for (let pageNum = 1; pageNum <= pdfDocCache.numPages; pageNum++) {
-        const page = await pdfDocCache.getPage(pageNum);
-        const canvas = document.createElement('canvas');
-        canvas.className = 'pdf-page-canvas';
-        
-        canvas.style.width = '100%';
-        canvas.style.height = 'auto';
-        canvas.style.display = 'block';
-        
-        const baseViewport = page.getViewport({ scale: 1.0 });
-        const maxScale = 4000 / baseViewport.width;
-        const pixelRatio = window.devicePixelRatio || 1;
-        const scale = Math.min(targetZoom * pixelRatio, maxScale);
-        
-        const viewport = page.getViewport({ scale });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-        
-        const ctx = canvas.getContext('2d');
-        if (ctx) await page.render({ canvasContext: ctx, viewport }).promise;
-        
-        tempContainer.appendChild(canvas);
-      }
-      
-      container.innerHTML = '';
-      while(tempContainer.firstChild) {
-        container.appendChild(tempContainer.firstChild);
-      }
-    },
-
     async loadEvents() {
       let list = await db.events.toArray();
       list.sort((a, b) => {
@@ -686,6 +806,7 @@ Alpine.data('app', () => {
       const start = (e: any) => { 
         isDragging = true; 
         this.isPdfCollapsed = false;
+        this.hidePatches();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         startX = clientX;
@@ -703,6 +824,7 @@ Alpine.data('app', () => {
         if (!isDragging) return;
         isDragging = false; 
         document.body.style.userSelect = 'auto';
+        this.triggerPatchRender();
         
         if (window.innerWidth >= 900) {
           if (this.pdfWidth < 3) this.isPdfCollapsed = true;
@@ -715,6 +837,7 @@ Alpine.data('app', () => {
       
       const move = (e: any) => {
         if (!isDragging) return;
+        this.hidePatches();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
