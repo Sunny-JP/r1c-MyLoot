@@ -867,7 +867,7 @@ Alpine.data('app', () => {
       localStorage.setItem('columns', this.columns.toString());
     },
 
-    async selectEvent(event: EventFolder) {
+    async selectEvent(event: EventFolder, closeMenu = true) {
       this.currentEvent = event;
       if (event.id) localStorage.setItem('lastEventId', event.id.toString());
       this.activeContextId = null;
@@ -881,7 +881,9 @@ Alpine.data('app', () => {
       }
 
       await this.refreshCircles();
-      this.isMenuOpen = false; 
+      if (closeMenu) {
+        this.isMenuOpen = false; 
+      }
       this.isFormOpen = false;
       this.editingUuid = null;
     },
@@ -953,7 +955,19 @@ Alpine.data('app', () => {
         await db.events.delete(id);
         await db.circles.where('eventId').equals(id).delete();
         await db.eventOrders.delete(id);
-        await this.init();
+        
+        await this.loadEvents();
+        
+        if (this.currentEvent && this.currentEvent.id === id) {
+          localStorage.removeItem('lastEventId');
+          if (this.events.length > 0) {
+            await this.selectEvent(this.events[0], false);
+          } else {
+            window.location.reload();
+            return;
+          }
+        }
+        
         this.activeContextId = null;
         this.closeConfirm();
       });
@@ -1225,6 +1239,7 @@ Alpine.data('app', () => {
         this.importModal.file = null;
         this.importModal.fileName = '';
       }
+      e.target.value = ''; 
     },
 
     executeImport() {
