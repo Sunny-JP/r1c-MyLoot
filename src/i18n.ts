@@ -107,7 +107,7 @@ export const translations = {
     devTeam: '開発・運営',
     devInfo: 'Sunny',
     feedbackTitle: 'フィードバック',
-    feedbackDesc: '不具合の報告やご要望は、 X または GitHub までお寄せください。',
+    feedbackDesc: '不具合の報告やご要望は、GitHub または 下記Google Form までお寄せください。GitHubでは積極的なプルリクエストを歓迎します。',
     loot: '名前の由来',
     lootMean: '日本語読みでは同じような響きを持つ「Route = 道順」「Loot = 戦利品」から、イベント会場を効率よく回るための「道順」と、そこで得られる「戦利品」を管理するアプリ、という意味を込めて名付けました。'
   },
@@ -219,7 +219,7 @@ export const translations = {
     devTeam: 'Development',
     devInfo: 'Sunny',
     feedbackTitle: 'Feedback',
-    feedbackDesc: 'Please send bug reports or requests to X or GitHub. We appreciate your feedback.',
+    feedbackDesc: 'For bug reports or suggestions, please contact us via GitHub or the Google Form below. We welcome active pull requests on GitHub.',
     loot: 'Name Origin',
     lootMean: 'The name "MyLoot" is derived from the similar-sounding Japanese words for "Route" (the path to efficiently navigate the event) and "Loot" (the treasures/items obtained at the event). It reflects the app\'s purpose of managing both your route and your loot at events.'
   },
@@ -331,7 +331,7 @@ export const translations = {
     devTeam: '개발 및 운영',
     devInfo: 'Sunny',
     feedbackTitle: '피드백',
-    feedbackDesc: '버그 신고나 의견은 X 또는 GitHub로 보내주세요.',
+    feedbackDesc: '버그 보고나 요청 사항은 GitHub 또는 아래 Google Form으로 보내주세요. GitHub에서는 적극적인 풀 리퀘스트를 환영합니다.',
     loot: '이름의 유래',
     lootMean: '일본어 발음에서 비슷한 울림을 가진 "Route = 루트(길)"와 "Loot = 전리품"에서 착안하여, 이벤트 회장을 효율적으로 돌기 위한 "루트"와 그곳에서 얻을 수 있는 "전리품"을 관리하는 앱이라는 의미를 담아 이름 지었습니다.'
   },
@@ -443,7 +443,7 @@ export const translations = {
     devTeam: '开发与运营',
     devInfo: 'Sunny',
     feedbackTitle: '反馈',
-    feedbackDesc: '如有错误报告或建议，请通过 X 或 GitHub 发送给我们。',
+    feedbackDesc: '如有任何问题或建议，请通过 GitHub 或以下 Google Form 联系我们。我们欢迎在 GitHub 上积极提交 pull request。',
     loot: '名称由来',
     lootMean: '由于在日语发音中“Route（路线）”和“Loot（战利品）”读音相近，因此取名为 MyLoot，寓意这是一款用来规划逛展“路线”并管理所获“战利品”的应用。'
   }
