@@ -6,28 +6,28 @@
 }
 
 body.dark {
-  --p: #7986cb; --p-contrast: #000000; --bg: #000000; --card: #1c1c1e; --txt: #ffffff; --brd: #454545;
-  --header-bg: #1a237e; --header-title: #ffffff; --header-sub: #c5cae9;
+  --p: #1a237e; --bg: #000000; --card: #1c1c1e; --txt: #ffffff; --brd: #454545;
+  --header-bg: #1a237e; --header-sub: #c5cae9;
   --sel-bg: rgba(121, 134, 203, 0.2); --badge-sel-bg: rgba(0, 0, 0, 0.3); --price-sel-bg: rgba(0, 0, 0, 0.3);
   color-scheme: dark;
 }
 
-body.theme-sky { --p: #0288d1; --p-contrast: #ffffff; --header-bg: #0288d1; --header-title: #ffffff; --header-sub: #e1f5fe; --sel-bg: rgba(2, 136, 209, 0.15); --price-sel-bg: rgba(2, 136, 209, 0.25); }
-body.theme-sky.dark { --p: #29b6f6; --p-contrast: #000000; --header-bg: #01579b; --header-title: #ffffff; --header-sub: #b3e5fc; --sel-bg: rgba(41, 182, 246, 0.2); }
-body.theme-mint { --p: #00897b; --p-contrast: #ffffff; --header-bg: #00897b; --header-title: #ffffff; --header-sub: #e0f2f1; --sel-bg: rgba(0, 137, 123, 0.15); --price-sel-bg: rgba(0, 137, 123, 0.25); }
-body.theme-mint.dark { --p: #26a69a; --p-contrast: #000000; --header-bg: #004d40; --header-title: #ffffff; --header-sub: #b2dfdb; --sel-bg: rgba(38, 166, 154, 0.2); }
-body.theme-sage { --p: #43a047; --p-contrast: #ffffff; --header-bg: #43a047; --header-title: #ffffff; --header-sub: #e8f5e9; --sel-bg: rgba(67, 160, 71, 0.15); --price-sel-bg: rgba(67, 160, 71, 0.25); }
-body.theme-sage.dark { --p: #66bb6a; --p-contrast: #000000; --header-bg: #1b5e20; --header-title: #ffffff; --header-sub: #c8e6c9; --sel-bg: rgba(102, 187, 106, 0.2); }
-body.theme-amber { --p: #f57c00; --p-contrast: #ffffff; --header-bg: #f57c00; --header-title: #ffffff; --header-sub: #fff3e0; --sel-bg: rgba(245, 124, 0, 0.15); --price-sel-bg: rgba(245, 124, 0, 0.25); }
-body.theme-amber.dark { --p: #ffb74d; --p-contrast: #000000; --header-bg: #b26a00; --header-title: #ffffff; --header-sub: #ffe0b2; --sel-bg: rgba(255, 167, 38, 0.2); }
-body.theme-coral { --p: #f4511e; --p-contrast: #ffffff; --header-bg: #f4511e; --header-title: #ffffff; --header-sub: #fbe9e7; --sel-bg: rgba(244, 81, 30, 0.15); --price-sel-bg: rgba(244, 81, 30, 0.25); }
-body.theme-coral.dark { --p: #ff7043; --p-contrast: #000000; --header-bg: #bf360c; --header-title: #ffffff; --header-sub: #ffccbc; --sel-bg: rgba(255, 112, 67, 0.2); }
-body.theme-rose { --p: #d81b60; --p-contrast: #ffffff; --header-bg: #d81b60; --header-title: #ffffff; --header-sub: #fce4ec; --sel-bg: rgba(216, 27, 96, 0.15); --price-sel-bg: rgba(216, 27, 96, 0.25); }
-body.theme-rose.dark { --p: #ec407a; --p-contrast: #000000; --header-bg: #880e4f; --header-title: #ffffff; --header-sub: #f8bbd0; --sel-bg: rgba(236, 64, 122, 0.2); }
-body.theme-lilac { --p: #8e24aa; --p-contrast: #ffffff; --header-bg: #8e24aa; --header-title: #ffffff; --header-sub: #f3e5f5; --sel-bg: rgba(142, 36, 170, 0.15); --price-sel-bg: rgba(142, 36, 170, 0.25); }
-body.theme-lilac.dark { --p: #ab47bc; --p-contrast: #000000; --header-bg: #4a148c; --header-title: #ffffff; --header-sub: #e1bee7; --sel-bg: rgba(171, 71, 188, 0.2); }
-body.theme-mono { --p: #424242; --p-contrast: #ffffff; --header-bg: #212121; --header-title: #ffffff; --header-sub: #eeeeee; --sel-bg: rgba(66, 66, 66, 0.15); --price-sel-bg: rgba(33, 33, 33, 0.25); }
-body.theme-mono.dark { --p: #bdbdbd; --p-contrast: #000000; --header-bg: #121212; --header-title: #ffffff; --header-sub: #e0e0e0; --sel-bg: rgba(189, 189, 189, 0.2); }
+body.theme-sky { --p: #0288d1; --header-bg: #0288d1; --header-sub: #e1f5fe; --sel-bg: rgba(2, 136, 209, 0.15); --price-sel-bg: rgba(2, 136, 209, 0.25); }
+body.theme-sky.dark { --p: #01579b; --header-bg: #01579b; --header-sub: #b3e5fc; --sel-bg: rgba(41, 182, 246, 0.2); }
+body.theme-mint { --p: #00897b; --header-bg: #00897b; --header-sub: #e0f2f1; --sel-bg: rgba(0, 137, 123, 0.15); --price-sel-bg: rgba(0, 137, 123, 0.25); }
+body.theme-mint.dark { --p: #004d40; --header-bg: #004d40; --header-sub: #b2dfdb; --sel-bg: rgba(38, 166, 154, 0.2); }
+body.theme-sage { --p: #43a047; --header-bg: #43a047; --header-sub: #e8f5e9; --sel-bg: rgba(67, 160, 71, 0.15); --price-sel-bg: rgba(67, 160, 71, 0.25); }
+body.theme-sage.dark { --p: #1b5e20; --header-bg: #1b5e20; --header-sub: #c8e6c9; --sel-bg: rgba(102, 187, 106, 0.2); }
+body.theme-amber { --p: #f57c00; --header-bg: #f57c00; --header-sub: #fff3e0; --sel-bg: rgba(245, 124, 0, 0.15); --price-sel-bg: rgba(245, 124, 0, 0.25); }
+body.theme-amber.dark { --p: #b26a00; --header-bg: #b26a00; --header-sub: #ffe0b2; --sel-bg: rgba(255, 167, 38, 0.2); }
+body.theme-coral { --p: #f4511e; --header-bg: #f4511e; --header-sub: #fbe9e7; --sel-bg: rgba(244, 81, 30, 0.15); --price-sel-bg: rgba(244, 81, 30, 0.25); }
+body.theme-coral.dark { --p: #bf360c; --header-bg: #bf360c; --header-sub: #ffccbc; --sel-bg: rgba(255, 112, 67, 0.2); }
+body.theme-rose { --p: #d81b60; --header-bg: #d81b60; --header-sub: #fce4ec; --sel-bg: rgba(216, 27, 96, 0.15); --price-sel-bg: rgba(216, 27, 96, 0.25); }
+body.theme-rose.dark { --p: #880e4f; --header-bg: #880e4f; --header-sub: #f8bbd0; --sel-bg: rgba(236, 64, 122, 0.2); }
+body.theme-lilac { --p: #8e24aa; --header-bg: #8e24aa; --header-sub: #f3e5f5; --sel-bg: rgba(142, 36, 170, 0.15); --price-sel-bg: rgba(142, 36, 170, 0.25); }
+body.theme-lilac.dark { --p: #4a148c; --header-bg: #4a148c; --header-sub: #e1bee7; --sel-bg: rgba(171, 71, 188, 0.2); }
+body.theme-mono { --p: #424242; --header-bg: #212121; --header-sub: #eeeeee; --sel-bg: rgba(66, 66, 66, 0.15); --price-sel-bg: rgba(33, 33, 33, 0.25); }
+body.theme-mono.dark { --p: #666666; --header-bg: #121212; --header-sub: #e0e0e0; --sel-bg: rgba(189, 189, 189, 0.2); }
 
 ::selection { background-color: var(--sel-bg); }
 .badge::selection, .badge *::selection { background-color: var(--badge-sel-bg) !important; }
@@ -137,6 +137,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 input[type="radio"] { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; border: 2px solid var(--mut); border-radius: 50%; background-color: var(--card); cursor: pointer; position: relative; margin: 0; }
 input[type="radio"]:checked { border-color: var(--p); }
 input[type="radio"]:checked::after { content: ''; position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background-color: var(--p); border-radius: 50%; transform: translate(-50%, -50%); transition: background 0.3s; }
+body.dark input[type="radio"]:checked { background-color: var(--p-contrast); }
 input[type="radio"]:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .circles-grid { display: flex; flex-direction: column; gap: 8px; }
