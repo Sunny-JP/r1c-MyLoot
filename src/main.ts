@@ -1164,8 +1164,17 @@ Alpine.data('app', () => {
       }
     },
     removeLinkInForm(index: number) {
-      this.newLinks.splice(index, 1);
-      if (this.newLinks.length === 0) this.newLinks.push({ url: '' });
+      if (this.newLinks[index].url === '') {
+        this.newLinks.splice(index, 1);
+        if (this.newLinks.length === 0) this.newLinks.push({ url: '' });
+        return;
+      }
+
+      this.showConfirm(this.t('deleteConfirm'), async () => {
+        this.newLinks.splice(index, 1);
+        if (this.newLinks.length === 0) this.newLinks.push({ url: '' });
+        this.closeConfirm();
+      });
     },
 
     async uploadMapPdf(e: any) {
@@ -1190,7 +1199,18 @@ Alpine.data('app', () => {
       });
     },
 
-    removeItemInForm(index: number) { this.newItems.splice(index, 1); },
+    removeItemInForm(index: number) {
+      if (this.newItems[index].name === '') {
+        this.newItems.splice(index, 1);
+        return;
+      }
+
+      this.showConfirm(this.t('deleteConfirm'), async () => {
+        this.newItems.splice(index, 1);
+        this.closeConfirm();
+      });
+    },
+
     checkAutoAdd(index: number) {
       if (index === this.newItems.length - 1 && this.newItems[index].name !== '') {
         this.newItems.push({ name: '', price: 0, quantity: 1, isChecked: false });
